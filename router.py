@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Blackwell Multi-Backend Router v3.1.1
-Supports SGLang (AWQ) and TabbyAPI (EXL2) with streaming status updates
-Now with tok/s performance metrics appended to responses
+Multi-Backend LLM Router v3.3.0
+Supports SGLang (AWQ), TabbyAPI (EXL2), and llama.cpp (GGUF)
+With automatic model switching, streaming status, and tok/s metrics
 """
 
 from fastapi import FastAPI, Request, HTTPException
@@ -14,69 +14,63 @@ import logging
 import uvicorn
 import json
 import time
+import os
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Blackwell Model Router", version="3.1.1")
+app = FastAPI(title="Multi-Backend LLM Router", version="3.3.0")
 
-# Backend configurations
-SGLANG_PORT = 30000
-TABBY_PORT = 5000
+# Load configuration from JSON file
+CONFIG_FILE = os.getenv("ROUTER_CONFIG", "/opt/llm-router/config.json")
 
-SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
-TABBY_URL = f"http://localhost:{TABBY_PORT}"
+try:
+    with open(CONFIG_FILE, "r") as f:
+        config = json.load(f)
+    
+    # Extract backend settings
+    backends = config.get("backends", {})
+    SGLANG_PORT = backends.get("sglang", {}).get("port", 30000)
+    TABBY_PORT = backends.get("tabbyapi", {}).get("port", 5000)
+    LLAMACPP_PORT = backends.get("llamacpp", {}).get("port", 8085)
+    
+    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
+    TABBY_URL = f"http://localhost:{TABBY_PORT}"
+    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
+    
+    # Load models from config
+    MODELS = config.get("models", {})
+    MODEL_LOAD_TIMEOUT = config.get("model_load_timeout", 180)
+    ROUTER_PORT = config.get("router_port", 8002)
+    
+    logger.info(f"Loaded {len(MODELS)} models from {CONFIG_FILE}")
+    for model_name in MODELS.keys():
+        logger.info(f"  - {model_name}")
+        
+except FileNotFoundError:
+    logger.error(f"Config file not found: {CONFIG_FILE}")
+    logger.error("Please create config.json with your model configuration")
+    MODELS = {}
+    MODEL_LOAD_TIMEOUT = 180
+    ROUTER_PORT = 8002
+    SGLANG_PORT = 30000
+    TABBY_PORT = 5000
+    LLAMACPP_PORT = 8085
+    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
+    TABBY_URL = f"http://localhost:{TABBY_PORT}"
+    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
+except Exception as e:
+    logger.error(f"Error loading config: {e}")
+    MODELS = {}
+    MODEL_LOAD_TIMEOUT = 180
+    ROUTER_PORT = 8002
+    SGLANG_PORT = 30000
+    TABBY_PORT = 5000
+    LLAMACPP_PORT = 8085
+    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
+    TABBY_URL = f"http://localhost:{TABBY_PORT}"
+    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
 
-LLAMACPP_PORT = 8085
-LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
-
-# Model definitions - These are examples
-# In production, configure your models in /etc/llm-router/models.yml
-MODELS = {
-    "mistral-large-2411-awq": {
-        "backend": "sglang",
-        "script": "/path/to/start_sglang_mistral.sh",
-        "service": "sglang.service"
-    },
-    "llama-3.3-70b-awq": {
-        "backend": "sglang",
-        "script": "/path/to/start_sglang_llama33.sh",
-        "service": "sglang.service"
-    },
-    "deepseek-r1-distill-70b-awq": {
-        "backend": "sglang",
-        "script": "/path/to/start_sglang_deepseek.sh",
-        "service": "sglang.service"
-    },
-    "magnum-v4-123b-awq": {
-        "backend": "sglang",
-        "script": "/path/to/start_sglang_magnum.sh",
-        "service": "sglang.service"
-    },
-    "kat-dev-awq-8bit": {
-        "backend": "sglang",
-        "script": "/path/to/start_sglang_katdev.sh",
-        "service": "sglang.service"
-    },
-    "monstral-123b-exl2-4bpw": {
-        "backend": "tabby",
-        "script": None,
-        "service": "tabbyapi.service",
-        "model_name": "Monstral-123B-v2-exl2-4.0bpw"
-    },
-    "behemoth-r1-123b-iq4nl": {
-        "backend": "llamacpp",
-        "script": "/path/to/start_llamacpp_behemoth.sh",
-        "service": "llamacpp.service"
-    },
-    "magnum-diamond-123b-iq4nl": {
-        "backend": "llamacpp",
-        "script": "/path/to/start_llamacpp_magnum.sh",
-        "service": "llamacpp.service"
-    }
-}
-
-MODEL_LOAD_TIMEOUT = 180
 current_model = None
 switching_lock = asyncio.Lock()
 
@@ -487,14 +481,9 @@ async def health():
 
 if __name__ == "__main__":
     logger.info("="*60)
-    logger.info("Blackwell Multi-Backend Router v3.1.1")
-    logger.info("With inline tok/s performance metrics")
+    logger.info("Multi-Backend LLM Router v3.3.0")
+    logger.info("Supports: SGLang (AWQ), TabbyAPI (EXL2), llama.cpp (GGUF)")
     logger.info("="*60)
     logger.info(f"Models: {list(MODELS.keys())}")
     logger.info("="*60)
-    uvicorn.run(app, host="0.0.0.0", port=8002, log_level="info")
-
-# Note: llama.cpp backend configuration would go here
-# Once llama-server is built and GGUF models downloaded, add:
-# LLAMACPP_PORT = 8003
-# LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
+    uvicorn.run(app, host="0.0.0.0", port=ROUTER_PORT, log_level="info")

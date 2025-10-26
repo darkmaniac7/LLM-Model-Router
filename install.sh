@@ -98,9 +98,11 @@ echo "=== Installing ==="
 mkdir -p $INSTALL_DIR
 mkdir -p /etc/llm-router
 
-# Copy router application
+# Copy router application and management script
 cp router.py $INSTALL_DIR/
 chmod +x $INSTALL_DIR/router.py
+cp manage-models.sh $INSTALL_DIR/
+chmod +x $INSTALL_DIR/manage-models.sh
 
 # Create Python virtual environment
 echo "Creating Python virtual environment..."
@@ -109,68 +111,71 @@ $PYTHON_ENV/bin/pip install --upgrade pip > /dev/null
 $PYTHON_ENV/bin/pip install fastapi uvicorn httpx pyyaml > /dev/null
 echo "✓ Python dependencies installed"
 
-# Generate config.yml
-cat > /etc/llm-router/config.yml << EOFCONFIG
-# Multi-Backend LLM Router Configuration
-title: "Multi-Backend LLM Router"
-version: "1.0.0"
-log_level: "INFO"
-
-router_port: $ROUTER_PORT
-model_load_timeout: 180
-
-backends:
+# Generate config.json
+cat > /etc/llm-router/config.json << 'EOFCONFIG'
+{
+  "router_port": ROUTER_PORT_PLACEHOLDER,
+  "model_load_timeout": 300,
+  "backends": {
 EOFCONFIG
 
-# Add enabled backends
+# Add backends to JSON
+BACKENDS_JSON=""
+BACKEND_COUNT=0
+
 if [ ! -z "$SGLANG_PORT" ]; then
-cat >> /etc/llm-router/config.yml << EOFCONFIG
-  sglang:
-    host: "$SGLANG_HOST"
-    port: $SGLANG_PORT
-    service: "$SGLANG_SERVICE"
-    health_endpoint: "/health"
-EOFCONFIG
-fi
-
-if [ ! -z "$VLLM_PORT" ]; then
-cat >> /etc/llm-router/config.yml << EOFCONFIG
-  vllm:
-    host: "$VLLM_HOST"
-    port: $VLLM_PORT
-    service: "$VLLM_SERVICE"
-    health_endpoint: "/health"
-EOFCONFIG
+    if [ $BACKEND_COUNT -gt 0 ]; then
+        BACKENDS_JSON="$BACKENDS_JSON,"
+    fi
+    BACKENDS_JSON="$BACKENDS_JSON
+    \"sglang\": {
+      \"port\": $SGLANG_PORT,
+      \"host\": \"$SGLANG_HOST\",
+      \"health_endpoint\": \"/health\"
+    }"
+    BACKEND_COUNT=$((BACKEND_COUNT + 1))
 fi
 
 if [ ! -z "$TABBY_PORT" ]; then
-cat >> /etc/llm-router/config.yml << EOFCONFIG
-  tabbyapi:
-    host: "$TABBY_HOST"
-    port: $TABBY_PORT
-    service: "$TABBY_SERVICE"
-    health_endpoint: "/health"
-EOFCONFIG
+    if [ $BACKEND_COUNT -gt 0 ]; then
+        BACKENDS_JSON="$BACKENDS_JSON,"
+    fi
+    BACKENDS_JSON="$BACKENDS_JSON
+    \"tabbyapi\": {
+      \"port\": $TABBY_PORT,
+      \"host\": \"$TABBY_HOST\",
+      \"health_endpoint\": \"/health\"
+    }"
+    BACKEND_COUNT=$((BACKEND_COUNT + 1))
 fi
 
-echo "✓ Configuration created at /etc/llm-router/config.yml"
+if [ ! -z "$VLLM_PORT" ]; then
+    if [ $BACKEND_COUNT -gt 0 ]; then
+        BACKENDS_JSON="$BACKENDS_JSON,"
+    fi
+    BACKENDS_JSON="$BACKENDS_JSON
+    \"llamacpp\": {
+      \"port\": 8085,
+      \"host\": \"localhost\",
+      \"health_endpoint\": \"/health\"
+    }"
+fi
 
-# Create models.yml template
-cat > /etc/llm-router/models.yml << EOFMODELS
-# Model configuration
-# Edit this file to add your models
-#
-# Example:
-# my-model-name:
-#   backend: sglang  # or vllm, tabbyapi
-#   script: /path/to/start_script.sh  # optional, for sglang/vllm
-#   service: sglang.service
-#   model_name: Model-Name-In-Directory  # for tabbyapi
+cat >> /etc/llm-router/config.json << EOFCONFIG
+$BACKENDS_JSON
+  },
+  "models": {}
+}
+EOFCONFIG
 
-EOFMODELS
+# Replace router port placeholder
+sed -i "s/ROUTER_PORT_PLACEHOLDER/$ROUTER_PORT/" /etc/llm-router/config.json
 
-echo "✓ Models template created at /etc/llm-router/models.yml"
-echo "  ⚠️  You MUST edit this file to add your models!"
+echo "✓ Configuration created at /etc/llm-router/config.json"
+echo ""
+echo "To add models, use the management script:"
+echo "  $INSTALL_DIR/manage-models.sh"
+echo "Or manually edit: /etc/llm-router/config.json"
 
 # Create systemd service
 cat > /etc/systemd/system/llm-router.service << EOFSERVICE
@@ -182,8 +187,7 @@ After=network.target
 Type=simple
 User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
-Environment="ROUTER_CONFIG=/etc/llm-router/config.yml"
-Environment="ROUTER_MODELS=/etc/llm-router/models.yml"
+Environment="ROUTER_CONFIG=/etc/llm-router/config.json"
 Environment="PATH=$PYTHON_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=$PYTHON_ENV/bin/python $INSTALL_DIR/router.py
 Restart=always
@@ -204,16 +208,26 @@ echo "✅ Installation Complete!"
 echo "=========================================="
 echo ""
 echo "Next steps:"
-echo "1. Edit /etc/llm-router/models.yml to add your models"
+echo "1. Add your models using the management script:"
+echo "   $INSTALL_DIR/manage-models.sh"
+echo ""
 echo "2. Start the router:"
 echo "   sudo systemctl start llm-router"
+echo ""
 echo "3. Enable auto-start on boot:"
 echo "   sudo systemctl enable llm-router"
+echo ""
 echo "4. Check status:"
 echo "   sudo systemctl status llm-router"
+echo ""
 echo "5. View logs:"
 echo "   journalctl -u llm-router -f"
 echo ""
 echo "Router will be available at: http://localhost:$ROUTER_PORT"
 echo "OpenAI-compatible API: http://localhost:$ROUTER_PORT/v1/chat/completions"
+echo ""
+echo "Model management:"
+echo "  Add model:    $INSTALL_DIR/manage-models.sh add"
+echo "  List models:  $INSTALL_DIR/manage-models.sh list"
+echo "  Remove model: $INSTALL_DIR/manage-models.sh remove"
 echo ""

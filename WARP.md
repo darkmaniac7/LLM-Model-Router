@@ -8,6 +8,8 @@ This is a production-ready FastAPI-based router that enables seamless switching 
 
 **Key Value Proposition**: Solves the limitation that backends like SGLang/vLLM/TabbyAPI can only serve one model at a time, enabling Open-WebUI users to switch between models from a dropdown without manual service restarts.
 
+**Version 3.3.0 Changes**: Simplified configuration - no startup scripts needed! Just point to model files. Added interactive model management script for non-technical users. Changed from YAML to JSON config.
+
 ## Architecture
 
 ### Core Components
@@ -22,17 +24,19 @@ This is a production-ready FastAPI-based router that enables seamless switching 
 - **TabbyAPI** (port 5000): EXL2 quantized models, switched via config.yml model_name updates with 3s shutdown wait + 5s warmup
 - **llama.cpp** (port 8085): GGUF quantized models, switched via systemd ExecStart script updates
 
-**Model Configuration** (MODELS dict in router.py):
-```python
+**Model Configuration** (loaded from /opt/llm-router/config.json):
+```json
 {
+  "models": {
     "model-id": {
-        "backend": "sglang|tabby|llamacpp",
-        "script": "/path/to/startup_script.sh",  # for sglang/llamacpp
-        "service": "backend.service",
-        "model_name": "Model-Dir-Name"  # TabbyAPI only
+      "backend": "sglang|tabbyapi|llamacpp",
+      "model_path": "/full/path/to/model/file/or/directory"
     }
+  }
 }
 ```
+
+**Note**: Version 3.3.0 removed the need for startup scripts. The router now only needs the model path and automatically handles backend startup with the correct model.
 
 ### Service Management Pattern
 
@@ -100,14 +104,17 @@ sudo systemctl status llamacpp
 
 ### Configuration Files
 ```bash
-# Edit router configuration (backend ports, timeouts)
-sudo nano /etc/llm-router/config.yml
+# Easy model management (recommended)
+/opt/llm-router/manage-models.sh add
 
-# Edit model definitions (what models are available)
-sudo nano /etc/llm-router/models.yml
+# Or edit configuration directly
+sudo nano /opt/llm-router/config.json
 
 # Reload after config changes
 sudo systemctl restart llm-router
+
+# List current models
+/opt/llm-router/manage-models.sh list
 ```
 
 ## Key Implementation Details
@@ -137,8 +144,13 @@ sudo systemctl restart llm-router
 
 ### llama.cpp Setup
 - Must be compiled with CUDA support for GPU acceleration
-- For Blackwell GPUs (sm_90): `cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=90`
-- Startup scripts use `-ngl 999` to offload all layers to GPU
+- **For Blackwell GPUs (sm_90)**: Requires open-source kernel modules and CUDA 12.8+
+  ```bash
+  cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=90 \
+        -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+        -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+  ```
+- Use `-ngl 999` to offload all layers to GPU
 - Port 8085 by default, health endpoint at `/health`
 
 ### TabbyAPI Quirks
@@ -180,9 +192,14 @@ The `install.sh` script:
 ## Development Guidelines
 
 ### Adding New Models
-Edit MODELS dict in router.py or models.yml (if using installed version):
-- SGLang/llama.cpp: provide script path and service name
-- TabbyAPI: provide model_name (directory name in models folder) and service name
+Use the management script (easiest):
+```bash
+/opt/llm-router/manage-models.sh add
+```
+
+Or edit /opt/llm-router/config.json:
+- All backends: Just provide `backend` type and `model_path`
+- No scripts, service files, or complex configuration needed
 
 ### Adding New Backends
 1. Add backend URL constant (e.g., NEWBACKEND_URL)

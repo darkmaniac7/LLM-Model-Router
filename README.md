@@ -1,6 +1,6 @@
 # Multi-Backend LLM Router
 
-**Version 3.2.0** - Now with llama.cpp support!
+**Version 3.3.0** - Simplified configuration with easy model management!
 
 A production-ready FastAPI-based router for seamlessly switching between multiple LLM backends:
 - **SGLang** (AWQ quantized models)
@@ -47,34 +47,58 @@ The installer will:
 4. Set up systemd services
 5. Start the router
 
+### Easy Model Management
+
+After installation, use the interactive script to add models:
+
+```bash
+# Interactive menu
+/opt/llm-router/manage-models.sh
+
+# Or use directly
+/opt/llm-router/manage-models.sh add    # Add a new model
+/opt/llm-router/manage-models.sh list   # List current models
+/opt/llm-router/manage-models.sh remove # Remove a model
+```
+
+The script will:
+1. Ask for a model name (e.g., "my-llama-model")
+2. Let you choose the backend (llama.cpp, sglang, or tabbyapi)
+3. Ask for the full path to your model file or directory
+4. Automatically update the configuration
+5. Optionally restart the router
+
 ### Manual Configuration
 
-Edit `config/router_config.json` to add your models:
+Or edit `/opt/llm-router/config.json` directly:
 
 ```json
 {
   "router_port": 8002,
+  "model_load_timeout": 300,
   "backends": {
-    "sglang": {"port": 30000},
-    "tabbyapi": {"port": 5000},
-    "llamacpp": {"port": 8085}
+    "sglang": {"port": 30000, "host": "localhost"},
+    "tabbyapi": {"port": 5000, "host": "localhost"},
+    "llamacpp": {"port": 8085, "host": "localhost"}
   },
   "models": {
     "mistral-large-awq": {
       "backend": "sglang",
-      "script": "/path/to/start_mistral.sh",
-      "service": "sglang.service"
+      "model_path": "/path/to/awq/model"
     },
-    "behemoth-123b-iq4nl": {
+    "behemoth-123b-gguf": {
       "backend": "llamacpp",
-      "script": "/path/to/start_behemoth.sh",
-      "service": "llamacpp.service"
+      "model_path": "/path/to/model.gguf"
+    },
+    "llama-70b-exl2": {
+      "backend": "tabbyapi",
+      "model_path": "/path/to/exl2/model"
     }
   }
 }
 ```
 
-**Important**: Replace `/path/to/` with your actual installation paths. Example startup scripts in the `scripts/` directory use environment variables that expand to your home directory automatically.
+**No startup scripts needed!** Just point to your model files/directories.
 
 ## Backend Setup
 
@@ -227,15 +251,22 @@ multi-backend-llm-router/
 ### Router Configuration
 
 `router_port`: Port for the router API (default: 8002)  
-`model_load_timeout`: Max seconds to wait for model load (default: 180)
+`model_load_timeout`: Max seconds to wait for model load (default: 300)
+
+### Backend Configuration
+
+Each backend requires:
+- `port`: Port number the backend listens on
+- `host`: Hostname (usually "localhost")
+- `health_endpoint`: Health check path (usually "/health")
 
 ### Model Configuration
 
 Each model requires:
 - `backend`: "sglang", "tabbyapi", or "llamacpp"
-- `script`: Path to startup script for the model
-- `service`: Systemd service name for the backend
-- `model_name`: (TabbyAPI only) Model directory name
+- `model_path`: Full path to model file (.gguf) or directory (AWQ/EXL2)
+
+**That's it!** The router handles everything else automatically.
 
 ## Requirements
 
@@ -249,10 +280,16 @@ Installed automatically by `install.sh`
 
 ## Version History
 
+**3.3.0** (2025-10-26)
+- Simplified configuration - no startup scripts required
+- Added interactive model management script for non-technical users
+- Changed from YAML to JSON configuration
+- Router automatically reads model paths from config
+- Easy model adding/removing without manual config editing
+
 **3.2.0** (2025-10-25)
 - Added llama.cpp support for GGUF models
 - Improved Blackwell GPU compatibility
-- Enhanced startup scripts
 
 **3.1.1** (2025-10-24)
 - Added tok/s performance metrics
