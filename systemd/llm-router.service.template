@@ -1,0 +1,19 @@
+[Unit]
+Description=Multi-Backend LLM Router
+After=network.target
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{INSTALL_DIR}}
+Environment="ROUTER_CONFIG=/etc/llm-router/config.yml"
+Environment="ROUTER_MODELS=/etc/llm-router/models.yml"
+Environment="PATH={{PYTHON_ENV}}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart={{PYTHON_ENV}}/bin/python {{INSTALL_DIR}}/router.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,28 @@
+# Multi-Backend LLM Router Configuration
+title: "Multi-Backend LLM Router"
+version: "1.0.0"
+log_level: "INFO"
+
+# Router settings
+router_port: 8002
+model_load_timeout: 180
+
+# Backend configurations
+backends:
+  sglang:
+    host: "localhost"
+    port: 30000
+    service: "sglang.service"
+    health_endpoint: "/health"
+  
+  vllm:
+    host: "localhost"
+    port: 8000
+    service: "vllm.service"
+    health_endpoint: "/health"
+  
+  tabbyapi:
+    host: "localhost"
+    port: 5000
+    service: "tabbyapi.service"
+    health_endpoint: "/health"

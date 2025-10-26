@@ -1,0 +1,26 @@
+# Model configuration for Multi-Backend LLM Router
+# Each model specifies which backend to use and optional startup script
+
+# SGLang/vLLM models with different startup scripts
+mistral-large-awq:
+  backend: sglang
+  script: /path/to/start_mistral.sh
+  service: sglang.service
+
+llama-70b-awq:
+  backend: sglang
+  script: /path/to/start_llama.sh
+  service: sglang.service
+
+# TabbyAPI models (no script needed, switches via API)
+magnum-123b-exl2:
+  backend: tabbyapi
+  script: null
+  service: tabbyapi.service
+  model_name: Magnum-123B-4.0bpw
+
+# vLLM model example
+deepseek-r1:
+  backend: vllm
+  script: /path/to/start_deepseek.sh
+  service: vllm.service

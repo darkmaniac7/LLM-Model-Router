@@ -1,0 +1,15 @@
+[Unit]
+Description=llama.cpp server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=__LLAMACPP_DIR__
+ExecStart=__SCRIPT_PATH__
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
