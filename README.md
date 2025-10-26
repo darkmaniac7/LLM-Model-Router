@@ -1,22 +1,23 @@
-# Multi-Backend LLM Router
+# Multi-Backend LLM Router for NVIDIA Blackwell GPUs
 
-**Version 3.3.0** - Simplified configuration with easy model management!
+**Version 4.0.0** - Production-ready with systemd service management
 
-A production-ready FastAPI-based router for seamlessly switching between multiple LLM backends:
-- **SGLang** (AWQ quantized models)
-- **TabbyAPI** (EXL2 quantized models)  
-- **llama.cpp** (GGUF quantized models)
+A robust FastAPI-based router supporting multiple LLM backends with automatic model switching:
+- **SGLang** (AWQ models) - ✅ Fully working with Blackwell fixes
+- **llama.cpp** (GGUF models) - ✅ Fully working via systemd services
+- **TabbyAPI** (EXL2 models) - 🚧 Functional, testing in progress
 
-Perfect for Blackwell GPUs and Open-WebUI integration with real-time streaming status updates and token-per-second performance metrics.
+Optimized for NVIDIA Blackwell GPUs (RTX 6000 Pro) with Open-WebUI integration, real-time streaming status, and proper model load detection.
 
 ## Features
 
-✅ **Multi-Backend Support**: SGLang (AWQ), TabbyAPI (EXL2), llama.cpp (GGUF)  
-✅ **Automatic Model Switching**: Seamless backend transitions with streaming status  
-✅ **Real-Time Metrics**: Token/s performance tracking appended to responses  
-✅ **Production Ready**: Systemd services, health checks, timeout handling  
+✅ **Multi-Backend Support**: SGLang (AWQ), llama.cpp (GGUF), TabbyAPI (EXL2)  
+✅ **Systemd Service Management**: Reliable start/stop of backend services  
+✅ **Smart Health Checks**: Waits for models to fully load to GPU before proxying  
+✅ **Streaming Status Updates**: Real-time loading progress (⏳ 10s, ⏳ 20s, ✅ Ready!)  
+✅ **Blackwell GPU Fixes**: TORCH_CUDA_ARCH_LIST, Triton backend, CUDA arch 89/90  
 ✅ **Open-WebUI Compatible**: Drop-in replacement for OpenAI API  
-✅ **Blackwell Optimized**: Tested on RTX 6000 Pro Blackwell
+✅ **Production Tested**: Ubuntu 24.04, CUDA 12.6, Driver 580.95.05
 
 ## Quick Start
 
