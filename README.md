@@ -1,8 +1,8 @@
-# Multi-Backend LLM Router v4.0.0 🚀
+**Multi-Backend LLM Router v4.0.0**
 
 Production-ready router supporting **SGLang (AWQ)**, **llama.cpp (GGUF)**, and **TabbyAPI (EXL2)** with automatic model switching through a unified OpenAI-compatible API.
 
-## ✨ Features
+**Features**
 
 - **3 Backend Support**: Seamlessly switch between GGUF, AWQ, and EXL2 models
 - **Automatic Model Switching**: Router handles backend lifecycle
@@ -11,7 +11,7 @@ Production-ready router supporting **SGLang (AWQ)**, **llama.cpp (GGUF)**, and *
 - **Streaming Support**: Full streaming for all backends
 - **OpenAI Compatible**: Drop-in replacement for OpenAI API
 
-## 🎯 Quick Start
+**Quick Start**
 
 ```bash
 # 1. Clone repository
@@ -37,13 +37,13 @@ sudo systemctl enable --now llm-router.service
 curl http://localhost:8002/v1/models
 ```
 
-## 📚 Documentation
+**Documentation**
 
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get running in 10 minutes
 - **[TabbyAPI Installation](docs/TABBYAPI_INSTALL.md)** - Complete EXL2 backend setup
 - **[Configuration Examples](config/)** - Sample configs for all backends
 
-## 🔧 Backends
+Backends
 
 | Backend | Format | Best For | Memory |
 |---------|--------|----------|--------|
@@ -51,7 +51,7 @@ curl http://localhost:8002/v1/models
 | **llama.cpp** | GGUF | CPU/GPU hybrid, flexibility | Low-Medium |
 | **TabbyAPI** | EXL2 | Maximum quality, NVIDIA only | High |
 
-## 📋 Requirements
+**Requirements**
 
 - Ubuntu 22.04+ or compatible Linux
 - NVIDIA GPU with CUDA 12.4+
@@ -59,15 +59,15 @@ curl http://localhost:8002/v1/models
 - 64GB+ RAM (for 70B models)
 - Root access for systemd services
 
-## 🚀 Usage
+**Usage**
 
-### List Models
+List Models
 
 ```bash
 curl http://localhost:8002/v1/models
 ```
 
-### Chat Completion
+Chat Completion
 
 ```bash
 curl -X POST http://localhost:8002/v1/chat/completions \
@@ -79,15 +79,15 @@ curl -X POST http://localhost:8002/v1/chat/completions \
   }'
 ```
 
-### Health Check
+Health Check
 
 ```bash
 curl http://localhost:8002/health
 ```
 
-## ⚙️ Configuration
+**Configuration**
 
-### Router Config (`/opt/llm-router/config.json`)
+Router Config (`/opt/llm-router/config.json`)
 
 ```json
 {
@@ -117,7 +117,7 @@ curl http://localhost:8002/health
 
 **Note**: TabbyAPI uses `model_dir` + `model_name` format. The router path should be the subdirectory only (e.g., `"exl2/ModelName"`).
 
-## 🔍 Monitoring
+**Monitoring**
 
 ```bash
 # Check router
@@ -135,7 +135,7 @@ sudo journalctl -u llm-router.service -f
 nvidia-smi
 ```
 
-## 🐛 Troubleshooting
+**Troubleshooting**
 
 ### Router not responding
 ```bash
@@ -149,7 +149,7 @@ sudo journalctl -u llm-router.service -n 50
 sudo systemctl restart llm-router.service
 ```
 
-### Backend not loading
+Backend not loading
 ```bash
 # Check backend status
 sudo systemctl status tabbyapi.service
@@ -160,12 +160,12 @@ curl http://localhost:30000/health # SGLang
 curl http://localhost:8085/health  # llama.cpp
 ```
 
-### Model switching fails
+Model switching fails
 - Check `MODEL_LOAD_TIMEOUT` in config (default: 300s)
 - Verify model paths are correct
 - Check GPU has sufficient memory (`nvidia-smi`)
 
-### TabbyAPI auth errors
+TabbyAPI auth errors
 Router automatically reads `api_tokens.yml`. Ensure it exists:
 ```bash
 cat $TABBY_TOKENS_PATH
@@ -173,19 +173,19 @@ cat $TABBY_TOKENS_PATH
 # Default path: /opt/TabbyAPI/api_tokens.yml
 ```
 
-## 🌟 Advanced
+**Advanced**
 
-### Multiple GPUs
+Multiple GPUs
 
 **TabbyAPI**: Set `gpu_split_auto: true` in config.yml  
 **SGLang**: Use `--tensor-parallel-size N`  
 **llama.cpp**: Use `-ngl 999` to offload all layers
 
-### Custom Parameters
+Custom Parameters
 
 Edit backend startup commands in systemd service files.
 
-### Blackwell GPU Support
+Blackwell GPU Support
 
 Tested on NVIDIA RTX PRO 6000 Blackwell. Use these build flags:
 
@@ -193,7 +193,7 @@ Tested on NVIDIA RTX PRO 6000 Blackwell. Use these build flags:
 - **llama.cpp**: `CMAKE_CUDA_ARCHITECTURES="89;90"`
 - **TabbyAPI**: Use pre-built venv with flash-attn (see docs)
 
-## 📊 Architecture
+**Architecture**
 
 ```
 Client → Router (8002)
@@ -205,15 +205,15 @@ Client → Router (8002)
    AWQ    GGUF    EXL2
 ```
 
-## 🤝 Contributing
+**Contributing**
 
 Contributions welcome! Please open an issue or PR on GitHub.
 
-## 📄 License
+License
 
 MIT License
 
-## 🙏 Acknowledgments
+**Acknowledgments**
 
 - [SGLang](https://github.com/sgl-project/sglang) - Fast AWQ inference
 - [llama.cpp](https://github.com/ggerganov/llama.cpp) - GGUF support
@@ -224,4 +224,4 @@ MIT License
 **Version**: 4.0.0  
 **Status**: Production Ready ✅  
 **Tested**: NVIDIA Blackwell GPUs  
-**Last Updated**: January 26, 2025
+**Last Updated**: October 26, 2025
