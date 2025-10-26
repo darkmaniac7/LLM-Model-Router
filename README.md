@@ -308,8 +308,4 @@ MIT License - See LICENSE file
 
 ## Support
 
-For issues and updates: https://github.com/yourusername/multi-backend-llm-router
-
----
-
-**Pro Tip**: For best results with llama.cpp on Blackwell GPUs, use IQ4_NL or Q4_K_M quantizations for 123B models. They offer excellent quality while fitting in 48GB VRAM.
+For issues and updates: https://github.com/darkmaniac7/multi-backend-llm-router
