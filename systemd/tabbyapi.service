@@ -5,8 +5,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/ivan/TabbyAPI
-ExecStart=/home/ivan/TabbyAPI/venv/bin/python main.py
+WorkingDirectory=/opt/TabbyAPI
+ExecStart=/opt/TabbyAPI/venv/bin/python main.py
 Restart=no
 StandardOutput=journal
 StandardError=journal

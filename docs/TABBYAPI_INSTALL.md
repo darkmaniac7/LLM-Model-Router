@@ -17,14 +17,14 @@ If you have access to a working TabbyAPI installation with flash-attn already bu
 
 ```bash
 # On working server - create tarball
-cd /home/ivan
+cd /opt
 tar -czf tabbyapi-venv.tar.gz TabbyAPI/venv/
 
 # Transfer to new server
 scp tabbyapi-venv.tar.gz user@newserver:/tmp/
 
 # On new server - extract
-cd /home/ivan/TabbyAPI
+cd /opt/TabbyAPI
 tar -xzf /tmp/tabbyapi-venv.tar.gz
 
 # CRITICAL: Make python executable
@@ -68,7 +68,7 @@ If build fails, you MUST use Method 1 (copy working venv).
 ### 1. Create config.yml
 
 ```bash
-cd /home/ivan/TabbyAPI
+cd /opt/TabbyAPI
 cat > config.yml << 'YAML_EOF'
 developer:
   backend: exllamav2
@@ -86,7 +86,7 @@ model:
   gpu_split_auto: true
   max_batch_size: 1
   max_seq_len: 32768
-  model_dir: /home/ivan/models
+  model_dir: /opt/models
   model_name: exl2/YourModelName
   tensor_parallel: false
 
@@ -126,8 +126,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/home/ivan/TabbyAPI
-ExecStart=/home/ivan/TabbyAPI/venv/bin/python main.py
+WorkingDirectory=/opt/TabbyAPI
+ExecStart=/opt/TabbyAPI/venv/bin/python main.py
 Restart=no
 StandardOutput=journal
 StandardError=journal
@@ -186,7 +186,7 @@ sudo journalctl -u tabbyapi.service -n 100
 nvcc --version  # Need 12.4+
 
 # Check if flash-attn installed
-/home/ivan/TabbyAPI/venv/bin/python -c "import flash_attn; print(flash_attn.__version__)"
+/opt/TabbyAPI/venv/bin/python -c "import flash_attn; print(flash_attn.__version__)"
 
 # If missing, use Method 1 (copy working venv)
 ```
@@ -194,24 +194,24 @@ nvcc --version  # Need 12.4+
 ### API key errors
 ```bash
 # Ensure both keys exist in api_tokens.yml
-cat /home/ivan/TabbyAPI/api_tokens.yml
+cat /opt/TabbyAPI/api_tokens.yml
 
 # Should have:
 # admin_key: xxx
 # api_key: xxx
 
 # If missing, delete and restart to regenerate
-rm /home/ivan/TabbyAPI/api_tokens.yml
+rm /opt/TabbyAPI/api_tokens.yml
 sudo systemctl restart tabbyapi.service
 ```
 
 ## Model Path Format
 
 TabbyAPI expects:
-- `model_dir`: `/home/ivan/models`
+- `model_dir`: `/opt/models`
 - `model_name`: `exl2/ModelName`
 
-Combined path: `/home/ivan/models/exl2/ModelName`
+Combined path: `/opt/models/exl2/ModelName`
 
 The router config uses just the subdirectory path:
 ```json
