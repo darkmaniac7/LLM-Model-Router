@@ -42,14 +42,16 @@ async def check_health(backend):
         if backend == "tabbyapi":
             try:
                 import yaml
-                api_tokens_path = "/home/ivan/TabbyAPI/api_tokens.yml"
+                # Get tokens path from environment or use default
+                api_tokens_path = os.getenv("TABBY_TOKENS_PATH", "/home/ivan/TabbyAPI/api_tokens.yml")
                 if os.path.exists(api_tokens_path):
                     with open(api_tokens_path) as f:
                         tokens = yaml.safe_load(f)
                         if tokens and "admin_key" in tokens:
                             headers["Authorization"] = f"Bearer {tokens['admin_key']}"
+                            logger.debug(f"Loaded TabbyAPI auth token from {api_tokens_path}")
             except Exception as e:
-                print(f"Warning: Could not load TabbyAPI auth token: {e}")
+                logger.warning(f"Could not load TabbyAPI auth token from {api_tokens_path}: {e}")
         
         async with httpx.AsyncClient(timeout=5.0) as c:
             # Test actual inference capability, not just endpoint availability

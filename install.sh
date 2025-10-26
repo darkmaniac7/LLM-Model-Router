@@ -2,7 +2,7 @@
 set -e
 
 echo "=========================================="
-echo "Multi-Backend LLM Router Installer"
+echo "Multi-Backend LLM Router v4.0.0 Installer"
 echo "=========================================="
 echo ""
 
@@ -56,19 +56,23 @@ SGLANG_PORT=${SGLANG_PORT:-30000}
 read -p "SGLang service name [sglang.service]: " SGLANG_SERVICE
 SGLANG_SERVICE=${SGLANG_SERVICE:-sglang.service}
 
-# vLLM
-read -p "vLLM host [localhost]: " VLLM_HOST
-VLLM_HOST=${VLLM_HOST:-localhost}
-read -p "vLLM port [8000] (empty to disable): " VLLM_PORT
-VLLM_PORT=${VLLM_PORT:-8000}
-read -p "vLLM service name [vllm.service]: " VLLM_SERVICE
-VLLM_SERVICE=${VLLM_SERVICE:-vllm.service}
+# llama.cpp
+read -p "llama.cpp host [localhost]: " LLAMACPP_HOST
+LLAMACPP_HOST=${LLAMACPP_HOST:-localhost}
+read -p "llama.cpp port [8085] (empty to disable): " LLAMACPP_PORT
+LLAMACPP_PORT=${LLAMACPP_PORT:-8085}
+read -p "llama.cpp service name [llamacpp.service]: " LLAMACPP_SERVICE
+LLAMACPP_SERVICE=${LLAMACPP_SERVICE:-llamacpp.service}
 
 # TabbyAPI
 read -p "TabbyAPI host [localhost]: " TABBY_HOST
 TABBY_HOST=${TABBY_HOST:-localhost}
 read -p "TabbyAPI port [5000] (empty to disable): " TABBY_PORT
 TABBY_PORT=${TABBY_PORT:-5000}
+if [ ! -z "$TABBY_PORT" ]; then
+    read -p "TabbyAPI api_tokens.yml path [/home/\$USER/TabbyAPI/api_tokens.yml]: " TABBY_TOKENS_PATH
+    TABBY_TOKENS_PATH=${TABBY_TOKENS_PATH:-/home/$SUDO_USER/TabbyAPI/api_tokens.yml}
+fi
 read -p "TabbyAPI service name [tabbyapi.service]: " TABBY_SERVICE
 TABBY_SERVICE=${TABBY_SERVICE:-tabbyapi.service}
 
@@ -80,9 +84,12 @@ echo "Router port: $ROUTER_PORT"
 echo "Run as user: $RUN_USER"
 echo ""
 echo "Backends:"
-[ ! -z "$SGLANG_PORT" ] && echo "  - SGLang: $SGLANG_HOST:$SGLANG_PORT"
-[ ! -z "$VLLM_PORT" ] && echo "  - vLLM: $VLLM_HOST:$VLLM_PORT"
-[ ! -z "$TABBY_PORT" ] && echo "  - TabbyAPI: $TABBY_HOST:$TABBY_PORT"
+[ ! -z "$SGLANG_PORT" ] && echo "  - SGLang (AWQ): $SGLANG_HOST:$SGLANG_PORT"
+[ ! -z "$LLAMACPP_PORT" ] && echo "  - llama.cpp (GGUF): $LLAMACPP_HOST:$LLAMACPP_PORT"
+if [ ! -z "$TABBY_PORT" ]; then
+    echo "  - TabbyAPI (EXL2): $TABBY_HOST:$TABBY_PORT"
+    [ ! -z "$TABBY_TOKENS_PATH" ] && echo "    Auth tokens: $TABBY_TOKENS_PATH"
+fi
 echo ""
 
 read -p "Proceed with installation? (y/n): " CONFIRM
@@ -149,14 +156,14 @@ if [ ! -z "$TABBY_PORT" ]; then
     BACKEND_COUNT=$((BACKEND_COUNT + 1))
 fi
 
-if [ ! -z "$VLLM_PORT" ]; then
+if [ ! -z "$LLAMACPP_PORT" ]; then
     if [ $BACKEND_COUNT -gt 0 ]; then
         BACKENDS_JSON="$BACKENDS_JSON,"
     fi
     BACKENDS_JSON="$BACKENDS_JSON
     \"llamacpp\": {
-      \"port\": 8085,
-      \"host\": \"localhost\",
+      \"port\": $LLAMACPP_PORT,
+      \"host\": \"$LLAMACPP_HOST\",
       \"health_endpoint\": \"/health\"
     }"
 fi
@@ -180,7 +187,7 @@ echo "Or manually edit: /etc/llm-router/config.json"
 # Create systemd service
 cat > /etc/systemd/system/llm-router.service << EOFSERVICE
 [Unit]
-Description=Multi-Backend LLM Router
+Description=Multi-Backend LLM Router v4.0.0
 After=network.target
 
 [Service]
@@ -188,6 +195,7 @@ Type=simple
 User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="ROUTER_CONFIG=/etc/llm-router/config.json"
+Environment="TABBY_TOKENS_PATH=$TABBY_TOKENS_PATH"
 Environment="PATH=$PYTHON_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=$PYTHON_ENV/bin/python $INSTALL_DIR/router.py
 Restart=always
@@ -207,27 +215,43 @@ echo "=========================================="
 echo "✅ Installation Complete!"
 echo "=========================================="
 echo ""
+echo "📚 Documentation:"
+echo "  - Quick Start: docs/QUICK_START.md"
+echo "  - TabbyAPI Setup: docs/TABBYAPI_INSTALL.md"
+echo "  - Systemd Services: systemd/*.service"
+echo ""
 echo "Next steps:"
-echo "1. Add your models using the management script:"
+echo "1. Configure backend services (see systemd/ directory for templates)"
+echo ""
+echo "2. Add your models using the management script:"
 echo "   $INSTALL_DIR/manage-models.sh"
 echo ""
-echo "2. Start the router:"
+echo "3. Start the router:"
 echo "   sudo systemctl start llm-router"
 echo ""
-echo "3. Enable auto-start on boot:"
+echo "4. Enable auto-start on boot:"
 echo "   sudo systemctl enable llm-router"
 echo ""
-echo "4. Check status:"
+echo "5. Check status:"
 echo "   sudo systemctl status llm-router"
 echo ""
-echo "5. View logs:"
+echo "6. View logs:"
 echo "   journalctl -u llm-router -f"
 echo ""
-echo "Router will be available at: http://localhost:$ROUTER_PORT"
-echo "OpenAI-compatible API: http://localhost:$ROUTER_PORT/v1/chat/completions"
+echo "🚀 Router API:"
+echo "  Base URL: http://localhost:$ROUTER_PORT"
+echo "  Chat: http://localhost:$ROUTER_PORT/v1/chat/completions"
+echo "  Models: http://localhost:$ROUTER_PORT/v1/models"
+echo "  Health: http://localhost:$ROUTER_PORT/health"
 echo ""
-echo "Model management:"
+echo "🔧 Model management:"
 echo "  Add model:    $INSTALL_DIR/manage-models.sh add"
 echo "  List models:  $INSTALL_DIR/manage-models.sh list"
 echo "  Remove model: $INSTALL_DIR/manage-models.sh remove"
 echo ""
+if [ ! -z "$TABBY_PORT" ] && [ ! -z "$TABBY_TOKENS_PATH" ]; then
+    echo "⚠️  TabbyAPI Note:"
+    echo "  Router will read auth tokens from: $TABBY_TOKENS_PATH"
+    echo "  Ensure this file exists with both 'admin_key' and 'api_key'"
+    echo ""
+fi
