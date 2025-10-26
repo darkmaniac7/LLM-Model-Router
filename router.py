@@ -1,489 +1,115 @@
 #!/usr/bin/env python3
 """
 Multi-Backend LLM Router v3.3.0
-Supports SGLang (AWQ), TabbyAPI (EXL2), and llama.cpp (GGUF)
-With automatic model switching, streaming status, and tok/s metrics
+Simplified - No systemd required, just model paths
 """
-
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
-import httpx
-import subprocess
-import asyncio
-import logging
-import uvicorn
-import json
-import time
-import os
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+import httpx, subprocess, asyncio, logging, uvicorn, json, time, os
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-
 app = FastAPI(title="Multi-Backend LLM Router", version="3.3.0")
 
-# Load configuration from JSON file
 CONFIG_FILE = os.getenv("ROUTER_CONFIG", "/opt/llm-router/config.json")
-
 try:
-    with open(CONFIG_FILE, "r") as f:
-        config = json.load(f)
-    
-    # Extract backend settings
+    config = json.load(open(CONFIG_FILE))
     backends = config.get("backends", {})
     SGLANG_PORT = backends.get("sglang", {}).get("port", 30000)
     TABBY_PORT = backends.get("tabbyapi", {}).get("port", 5000)
     LLAMACPP_PORT = backends.get("llamacpp", {}).get("port", 8085)
-    
-    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
-    TABBY_URL = f"http://localhost:{TABBY_PORT}"
-    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
-    
-    # Load models from config
     MODELS = config.get("models", {})
-    MODEL_LOAD_TIMEOUT = config.get("model_load_timeout", 180)
+    MODEL_LOAD_TIMEOUT = config.get("model_load_timeout", 300)
     ROUTER_PORT = config.get("router_port", 8002)
-    
-    logger.info(f"Loaded {len(MODELS)} models from {CONFIG_FILE}")
-    for model_name in MODELS.keys():
-        logger.info(f"  - {model_name}")
-        
-except FileNotFoundError:
-    logger.error(f"Config file not found: {CONFIG_FILE}")
-    logger.error("Please create config.json with your model configuration")
-    MODELS = {}
-    MODEL_LOAD_TIMEOUT = 180
-    ROUTER_PORT = 8002
-    SGLANG_PORT = 30000
-    TABBY_PORT = 5000
-    LLAMACPP_PORT = 8085
-    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
-    TABBY_URL = f"http://localhost:{TABBY_PORT}"
-    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
+    logger.info(f"Loaded {len(MODELS)} models: {list(MODELS.keys())}")
 except Exception as e:
-    logger.error(f"Error loading config: {e}")
-    MODELS = {}
-    MODEL_LOAD_TIMEOUT = 180
-    ROUTER_PORT = 8002
-    SGLANG_PORT = 30000
-    TABBY_PORT = 5000
-    LLAMACPP_PORT = 8085
-    SGLANG_URL = f"http://localhost:{SGLANG_PORT}"
-    TABBY_URL = f"http://localhost:{TABBY_PORT}"
-    LLAMACPP_URL = f"http://localhost:{LLAMACPP_PORT}"
+    logger.error(f"Config error: {e}")
+    MODELS, ROUTER_PORT, MODEL_LOAD_TIMEOUT = {}, 8002, 300
+    SGLANG_PORT, TABBY_PORT, LLAMACPP_PORT = 30000, 5000, 8085
 
-current_model = None
-switching_lock = asyncio.Lock()
+current_model, current_process, switching_lock = None, None, asyncio.Lock()
 
-def create_sse_message(data: dict) -> str:
-    """Create a Server-Sent Event message"""
-    return f"data: {json.dumps(data)}\n\n"
+def create_sse(data): return f"data: {json.dumps(data)}\n\n"
 
-async def get_backend_health(backend: str) -> bool:
+async def check_health(backend):
     try:
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            if backend == "sglang":
-                response = await client.get(f"{SGLANG_URL}/health")
-            elif backend == "llamacpp":
-                response = await client.get(f"{LLAMACPP_URL}/health")
-            else:
-                response = await client.get(f"{TABBY_URL}/health")
-            return response.status_code == 200
-    except:
-        return False
+        port = {"sglang": SGLANG_PORT, "tabbyapi": TABBY_PORT, "llamacpp": LLAMACPP_PORT}[backend]
+        async with httpx.AsyncClient(timeout=2.0) as c:
+            return (await c.get(f"http://localhost:{port}/v1/models")).status_code == 200
+    except: return False
 
-async def wait_for_backend_ready_streaming(backend: str):
-    """Generator that yields status messages while waiting for backend to load."""
-    start_time = time.time()
-    last_message_time = start_time
-    
-    while (time.time() - start_time) < MODEL_LOAD_TIMEOUT:
-        try:
-            if await get_backend_health(backend):
-                elapsed = int(time.time() - start_time)
-                logger.info(f"✓ {backend} ready after {elapsed}s!")
-                yield {"status": "ready", "elapsed": elapsed}
-                return
-        except:
-            pass
-        
-        elapsed = int(time.time() - start_time)
-        
-        if time.time() - last_message_time >= 10:
-            logger.info(f"  Loading {backend}... ({elapsed}s / {MODEL_LOAD_TIMEOUT}s)")
-            yield {"status": "loading", "elapsed": elapsed, "timeout": MODEL_LOAD_TIMEOUT}
-            last_message_time = time.time()
-        
+async def wait_ready(backend):
+    start = time.time()
+    while (time.time() - start) < MODEL_LOAD_TIMEOUT:
+        if await check_health(backend):
+            yield {"status": "ready", "elapsed": int(time.time() - start)}
+            return
+        if int(time.time() - start) % 10 == 0:
+            yield {"status": "loading", "elapsed": int(time.time() - start)}
         await asyncio.sleep(2)
-    
-    logger.error(f"✗ {backend} timeout after {MODEL_LOAD_TIMEOUT}s")
-    yield {"status": "timeout", "elapsed": MODEL_LOAD_TIMEOUT}
+    yield {"status": "timeout"}
 
-async def switch_to_sglang_model_streaming(model_id: str, model_info: dict):
-    """Generator for streaming status updates during model switch"""
-    logger.info(f"Switching SGLang to: {model_id}")
+async def start_backend(model_info):
+    global current_process
+    subprocess.run(["pkill", "-9", "llama-server"], capture_output=True)
+    subprocess.run(["pkill", "-9", "-f", "sglang"], capture_output=True)
+    if current_process:
+        try: current_process.kill()
+        except: pass
+    await asyncio.sleep(2)
     
-    # Stop all backend services
-    subprocess.run(["systemctl", "stop", "tabbyapi.service"], capture_output=True)
-    subprocess.run(["systemctl", "stop", "llamacpp.service"], capture_output=True)
-    subprocess.run(["pkill", "-9", "llama-server"], capture_output=True)  # Force kill any orphaned processes
-    
-    script_path = model_info["script"]
-    try:
-        subprocess.run(
-            ["sed", "-i", f"s|ExecStart=.*|ExecStart={script_path}|", 
-             f"/etc/systemd/system/{model_info['service']}"],
-            capture_output=True, check=True
-        )
-        subprocess.run(["systemctl", "daemon-reload"], capture_output=True, check=True)
-        subprocess.run(["systemctl", "restart", model_info["service"]], capture_output=True, check=True)
-        
-        async for status in wait_for_backend_ready_streaming("sglang"):
-            yield status
-    except Exception as e:
-        logger.error(f"Switch failed: {e}")
-        yield {"status": "error", "message": str(e)}
-
-async def switch_to_tabby_model_streaming(model_id: str, model_info: dict):
-    """Generator for streaming status updates during TabbyAPI switch"""
-    logger.info(f"Switching TabbyAPI to: {model_id}")
-    
-    # Stop all backend services FIRST
-    subprocess.run(["systemctl", "stop", "sglang.service"], capture_output=True)
-    subprocess.run(["systemctl", "stop", "tabbyapi.service"], capture_output=True)
-    subprocess.run(["systemctl", "stop", "llamacpp.service"], capture_output=True)
-    subprocess.run(["pkill", "-9", "llama-server"], capture_output=True)  # Force kill any orphaned processes
-    
-    # Wait for TabbyAPI to fully stop
-    import time
-    time.sleep(3)
-    
-    try:
-        # Update TabbyAPI config to load the specific model
-        model_name = model_info.get("model_name")
-        if model_name:
-            # Try to find TabbyAPI config - check common locations
-            import os
-            tabby_config_locations = [
-                os.path.expanduser("~/tabbyAPI/config.yml"),
-                "/opt/tabbyAPI/config.yml",
-                "/etc/tabbyapi/config.yml"
-            ]
-            config_path = None
-            for loc in tabby_config_locations:
-                if os.path.exists(loc):
-                    config_path = loc
-                    break
-            
-            if not config_path:
-                logger.error("Could not find TabbyAPI config.yml")
-                raise Exception("TabbyAPI config not found")
-            try:
-                # Read existing config
-                with open(config_path, 'r') as f:
-                    import yaml
-                    config = yaml.safe_load(f) or {}
-                
-                # Update model name
-                if 'model' not in config:
-                    config['model'] = {}
-                config['model']['model_name'] = model_name
-                
-                # Write updated config
-                with open(config_path, 'w') as f:
-                    yaml.safe_dump(config, f)
-                
-                logger.info(f"Updated TabbyAPI config to load {model_name}")
-            except Exception as e:
-                logger.error(f"Failed to update TabbyAPI config: {e}")
-        
-        # Now start TabbyAPI service with new config
-        subprocess.run(["systemctl", "start", model_info["service"]], capture_output=True, check=True)
-        
-        # Wait for TabbyAPI to load the model
-        async for status in wait_for_backend_ready_streaming("tabby"):
-            if status["status"] == "ready":
-                # Give TabbyAPI extra time to fully warm up
-                logger.info("Waiting 5s for model to fully warm up...")
-                await asyncio.sleep(5)
-            yield status
-            
-    except Exception as e:
-        logger.error(f"Switch failed: {e}")
-        yield {"status": "error", "message": str(e)}
-
-
-
-async def switch_to_llamacpp_model_streaming(model_id: str, model_info: dict):
-    """Generator for streaming status updates during llama.cpp switch"""
-    logger.info(f"Switching to llama.cpp model: {model_id}")
-    
-    # Stop all backend services
-    subprocess.run(["systemctl", "stop", "sglang.service"], capture_output=True)
-    subprocess.run(["systemctl", "stop", "tabbyapi.service"], capture_output=True)
-    subprocess.run(["systemctl", "stop", "llamacpp.service"], capture_output=True)
-    
-    # Wait for services to stop
-    import time
-    time.sleep(2)
-    
-    try:
-        # Update llamacpp service to use the correct start script
-        script_path = model_info["script"]
-        subprocess.run(
-            ["sed", "-i", f"s|ExecStart=.*|ExecStart={script_path}|", 
-             f"/etc/systemd/system/{model_info['service']}"],
-            capture_output=True, check=True
-        )
-        subprocess.run(["systemctl", "daemon-reload"], capture_output=True, check=True)
-        subprocess.run(["systemctl", "start", model_info["service"]], capture_output=True, check=True)
-        
-        # Wait for llama.cpp to load the model
-        async for status in wait_for_backend_ready_streaming("llamacpp"):
-            if status["status"] == "ready":
-                # Give llama.cpp extra time to fully warm up
-                logger.info("Waiting 5s for model to fully warm up...")
-                await asyncio.sleep(5)
-            yield status
-            
-    except Exception as e:
-        logger.error(f"Switch failed: {e}")
-        yield {"status": "error", "message": str(e)}
-
-
-async def streaming_chat_with_model_switch(requested_model: str, body: dict):
-    """Handle model switching with streaming status, then stream chat response with tok/s."""
-    global current_model
-    
-    # Check if we need to switch models
-    async with switching_lock:
-        if current_model != requested_model:
-            logger.info(f"Switch needed: {current_model} → {requested_model}")
-            
-            yield create_sse_message({
-                "choices": [{
-                    "delta": {"role": "assistant", "content": f"🔄 Switching to {requested_model}...\n\n"},
-                    "index": 0
-                }]
-            })
-            
-            if requested_model not in MODELS:
-                yield create_sse_message({
-                    "choices": [{
-                        "delta": {"content": f"❌ Error: Unknown model {requested_model}"},
-                        "index": 0,
-                        "finish_reason": "error"
-                    }]
-                })
-                return
-            
-            model_info = MODELS[requested_model]
-            backend = model_info["backend"]
-            
-            if backend == "sglang":
-                switch_gen = switch_to_sglang_model_streaming(requested_model, model_info)
-            elif backend == "llamacpp":
-                switch_gen = switch_to_llamacpp_model_streaming(requested_model, model_info)
-            else:
-                switch_gen = switch_to_tabby_model_streaming(requested_model, model_info)
-            
-            async for status in switch_gen:
-                if status["status"] == "loading":
-                    yield create_sse_message({
-                        "choices": [{
-                            "delta": {"content": f"⏳ Loading model... {status['elapsed']}s / {status['timeout']}s\n"},
-                            "index": 0
-                        }]
-                    })
-                elif status["status"] == "ready":
-                    current_model = requested_model
-                    yield create_sse_message({
-                        "choices": [{
-                            "delta": {"content": f"✅ Model ready! ({status['elapsed']}s)\n\n"},
-                            "index": 0
-                        }]
-                    })
-                    break
-                elif status["status"] == "timeout":
-                    yield create_sse_message({
-                        "choices": [{
-                            "delta": {"content": "\n\n❌ Model loading timed out. Check logs."},
-                            "index": 0,
-                            "finish_reason": "error"
-                        }]
-                    })
-                    return
-                elif status["status"] == "error":
-                    yield create_sse_message({
-                        "choices": [{
-                            "delta": {"content": f"\n\n❌ Error: {status.get('message', 'Unknown error')}"},
-                            "index": 0,
-                            "finish_reason": "error"
-                        }]
-                    })
-                    return
-        else:
-            logger.info(f"Already active: {requested_model}")
-    
-    # Forward to backend and track performance
-    backend = MODELS[requested_model]["backend"]
-    backend_url = SGLANG_URL if backend == "sglang" else (LLAMACPP_URL if backend == "llamacpp" else TABBY_URL)
-    
-    start_time = time.time()
-    token_count = 0
-    
-    try:
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            async with client.stream('POST', f"{backend_url}/v1/chat/completions", json=body) as response:
-                response.raise_for_status()
-                async for chunk in response.aiter_bytes():
-                    if chunk:
-                        chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
-                        
-                        # Count tokens based on content length (rough estimate)
-                        if chunk_str.startswith("data: "):
-                            try:
-                                data_str = chunk_str[6:].strip()
-                                if data_str and data_str != "[DONE]":
-                                    chunk_data = json.loads(data_str)
-                                    if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
-                                        delta = chunk_data["choices"][0].get("delta", {})
-                                        content = delta.get("content", "")
-                                        if content:
-                                            # Rough estimate: ~4 chars per token
-                                            token_count += max(1, len(content) // 4)
-                            except:
-                                pass
-                        
-                        yield chunk_str
-        
-        # Calculate and append tok/s after completion
-        elapsed = time.time() - start_time
-        
-        if elapsed > 0 and token_count > 0:
-            tok_per_sec = token_count / elapsed
-            perf_message = f"\n\n---\n⚡ {tok_per_sec:.1f} tok/s (~{token_count} tokens in {elapsed:.1f}s)"
-            
-            yield create_sse_message({
-                "choices": [{
-                    "delta": {"content": perf_message},
-                    "index": 0
-                }]
-            })
-            
-            logger.info(f"Performance: {tok_per_sec:.1f} tok/s")
-        
-        # Send final DONE
-        yield "data: [DONE]\n\n"
-        
-    except Exception as e:
-        logger.error(f"Backend error: {e}")
-        yield create_sse_message({
-            "choices": [{
-                "delta": {"content": f"\n\n❌ Error: {str(e)}"},
-                "index": 0,
-                "finish_reason": "error"
-            }]
-        })
+    backend, path = model_info["backend"], model_info["model_path"]
+    if backend == "sglang":
+        cmd = f"export PATH=/usr/local/cuda/bin:$PATH && cd $HOME/sglang && source sglang-env/bin/activate && python -m sglang.launch_server --model-path {path} --port {SGLANG_PORT} --host 0.0.0.0"
+        current_process = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
+        async for s in wait_ready("sglang"): yield s
+    elif backend == "llamacpp":
+        cmd = f"$HOME/llama.cpp/build/bin/llama-server -m {path} -ngl 999 --port {LLAMACPP_PORT} --host 0.0.0.0 -c 4096"
+        current_process = subprocess.Popen(cmd, shell=True)
+        async for s in wait_ready("llamacpp"): yield s
+    else:
+        yield {"status": "error", "message": "TabbyAPI not yet supported"}
 
 @app.get("/v1/models")
 async def list_models():
-    models = []
-    for model_id in MODELS.keys():
-        models.append({
-            "id": model_id,
-            "object": "model",
-            "created": 1234567890,
-            "owned_by": "local-blackwell"
-        })
-    return {"object": "list", "data": models}
+    return {"object": "list", "data": [{"id": k, "object": "model", "created": 1234567890, "owned_by": "local"} for k in MODELS.keys()]}
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: Request):
+async def chat(request: Request):
+    global current_model
     body = await request.json()
-    requested_model = body.get("model", list(MODELS.keys())[0])
-    stream = body.get("stream", False)
+    model = body.get("model")
     
-    logger.info(f"→ Request: {requested_model} (stream={stream})")
-    
-    if requested_model not in MODELS:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {requested_model}")
-    
-    if stream:
-        return StreamingResponse(
-            streaming_chat_with_model_switch(requested_model, body),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no"
-            }
-        )
-    else:
-        # Non-streaming with tok/s in response
-        global current_model
-        start_time = time.time()
-        
+    async def generate():
         async with switching_lock:
-            if current_model != requested_model:
-                model_info = MODELS[requested_model]
-                backend = model_info["backend"]
-                
-                if backend == "sglang":
-                    async for status in switch_to_sglang_model_streaming(requested_model, model_info):
-                        if status["status"] == "ready":
-                            current_model = requested_model
-                            break
-                        elif status["status"] in ["timeout", "error"]:
-                            raise HTTPException(status_code=503, detail="Model switch failed")
-                else:
-                    async for status in switch_to_tabby_model_streaming(requested_model, model_info):
-                        if status["status"] == "ready":
-                            current_model = requested_model
-                            break
-                        elif status["status"] in ["timeout", "error"]:
-                            raise HTTPException(status_code=503, detail="Model switch failed")
+            if current_model != model:
+                yield create_sse({"choices": [{"delta": {"content": f"🔄 Switching to {model}...\n"}}]})
+                async for s in start_backend(MODELS[model]):
+                    if s["status"] == "loading":
+                        yield create_sse({"choices": [{"delta": {"content": f"⏳ {s['elapsed']}s\n"}}]})
+                    elif s["status"] == "ready":
+                        current_model = model
+                        yield create_sse({"choices": [{"delta": {"content": "✅ Ready!\n\n"}}]})
+                        break
+                    else:
+                        yield create_sse({"choices": [{"delta": {"content": f"❌ {s.get('message','Timeout')}\n"}, "finish_reason": "error"}]})
+                        return
         
-        backend_url = SGLANG_URL if MODELS[requested_model]["backend"] == "sglang" else (LLAMACPP_URL if MODELS[requested_model]["backend"] == "llamacpp" else TABBY_URL)
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(f"{backend_url}/v1/chat/completions", json=body)
-            result = response.json()
-            
-            # Append tok/s to content
-            elapsed = time.time() - start_time
-            if "usage" in result and "completion_tokens" in result["usage"]:
-                tokens = result["usage"]["completion_tokens"]
-                if elapsed > 0 and tokens > 0:
-                    tok_per_sec = tokens / elapsed
-                    perf_text = f"\n\n---\n⚡ {tok_per_sec:.1f} tok/s ({tokens} tokens in {elapsed:.1f}s)"
-                    
-                    if "choices" in result and len(result["choices"]) > 0:
-                        if "message" in result["choices"][0]:
-                            result["choices"][0]["message"]["content"] += perf_text
-                    
-                    logger.info(f"Performance: {tok_per_sec:.1f} tok/s")
-            
-            return JSONResponse(content=result)
+        port = {"sglang": SGLANG_PORT, "tabbyapi": TABBY_PORT, "llamacpp": LLAMACPP_PORT}[MODELS[model]["backend"]]
+        async with httpx.AsyncClient(timeout=300.0) as c:
+            async with c.stream('POST', f"http://localhost:{port}/v1/chat/completions", json=body) as r:
+                async for chunk in r.aiter_bytes():
+                    yield chunk.decode() if isinstance(chunk, bytes) else chunk
+    
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 @app.get("/health")
 async def health():
-    sglang_health = await get_backend_health("sglang")
-    tabby_health = await get_backend_health("tabby")
-    
-    return {
-        "status": "healthy",
-        "current_model": current_model,
-        "backends": {
-            "sglang": sglang_health,
-            "tabbyapi": tabby_health
-        },
-        "models": list(MODELS.keys())
-    }
+    return {"status": "healthy", "current_model": current_model, "models": list(MODELS.keys())}
 
 if __name__ == "__main__":
     logger.info("="*60)
     logger.info("Multi-Backend LLM Router v3.3.0")
-    logger.info("Supports: SGLang (AWQ), TabbyAPI (EXL2), llama.cpp (GGUF)")
-    logger.info("="*60)
     logger.info(f"Models: {list(MODELS.keys())}")
     logger.info("="*60)
-    uvicorn.run(app, host="0.0.0.0", port=ROUTER_PORT, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=ROUTER_PORT)
