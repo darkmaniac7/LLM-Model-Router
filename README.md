@@ -14,22 +14,26 @@ Production-ready router supporting **SGLang (AWQ)**, **llama.cpp (GGUF)**, and *
 ## 🎯 Quick Start
 
 ```bash
-# 1. Install router
+# 1. Clone repository
+git clone https://github.com/darkmaniac7/LLM-Model-Router.git
+cd LLM-Model-Router
+
+# 2. Install router
 sudo mkdir -p /opt/llm-router
 sudo cp router.py /opt/llm-router/
 sudo python3 -m venv /opt/llm-router/venv
 sudo /opt/llm-router/venv/bin/pip install fastapi uvicorn httpx pyyaml
 
-# 2. Configure
+# 3. Configure
 sudo cp config/config.json.example /opt/llm-router/config.json
-# Edit config.json with your models
+# Edit /opt/llm-router/config.json with your model paths
 
-# 3. Install service
+# 4. Install service
 sudo cp systemd/llm-router.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now llm-router.service
 
-# 4. Test
+# 5. Test
 curl http://localhost:8002/v1/models
 ```
 

@@ -82,7 +82,7 @@ curl -X POST http://localhost:8002/v1/chat/completions \
 
 ## Configuration
 
-Edit `/etc/llm-router/config.json`:
+Edit `/opt/llm-router/config.json`:
 
 ```json
 {

@@ -103,7 +103,6 @@ echo "=== Installing ==="
 
 # Create directories
 mkdir -p $INSTALL_DIR
-mkdir -p /etc/llm-router
 
 # Copy router application and management script
 cp router.py $INSTALL_DIR/
@@ -119,7 +118,7 @@ $PYTHON_ENV/bin/pip install fastapi uvicorn httpx pyyaml > /dev/null
 echo "✓ Python dependencies installed"
 
 # Generate config.json
-cat > /etc/llm-router/config.json << 'EOFCONFIG'
+cat > /opt/llm-router/config.json << 'EOFCONFIG'
 {
   "router_port": ROUTER_PORT_PLACEHOLDER,
   "model_load_timeout": 300,
@@ -168,7 +167,7 @@ if [ ! -z "$LLAMACPP_PORT" ]; then
     }"
 fi
 
-cat >> /etc/llm-router/config.json << EOFCONFIG
+cat >> /opt/llm-router/config.json << EOFCONFIG
 $BACKENDS_JSON
   },
   "models": {}
@@ -176,13 +175,13 @@ $BACKENDS_JSON
 EOFCONFIG
 
 # Replace router port placeholder
-sed -i "s/ROUTER_PORT_PLACEHOLDER/$ROUTER_PORT/" /etc/llm-router/config.json
+sed -i "s/ROUTER_PORT_PLACEHOLDER/$ROUTER_PORT/" /opt/llm-router/config.json
 
-echo "✓ Configuration created at /etc/llm-router/config.json"
+echo "✓ Configuration created at /opt/llm-router/config.json"
 echo ""
 echo "To add models, use the management script:"
 echo "  $INSTALL_DIR/manage-models.sh"
-echo "Or manually edit: /etc/llm-router/config.json"
+echo "Or manually edit: /opt/llm-router/config.json"
 
 # Create systemd service
 cat > /etc/systemd/system/llm-router.service << EOFSERVICE
@@ -194,7 +193,7 @@ After=network.target
 Type=simple
 User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
-Environment="ROUTER_CONFIG=/etc/llm-router/config.json"
+Environment="ROUTER_CONFIG=/opt/llm-router/config.json"
 Environment="TABBY_TOKENS_PATH=$TABBY_TOKENS_PATH"
 Environment="PATH=$PYTHON_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=$PYTHON_ENV/bin/python $INSTALL_DIR/router.py
