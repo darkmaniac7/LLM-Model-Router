@@ -1,0 +1,35 @@
+{
+  "router_port": 8002,
+  "model_load_timeout": 300,
+  "backends": {
+    "llamacpp": {
+      "port": 8085,
+      "host": "localhost",
+      "health_endpoint": "/health"
+    },
+    "sglang": {
+      "port": 30000,
+      "host": "localhost",
+      "health_endpoint": "/health"
+    },
+    "tabbyapi": {
+      "port": 5000,
+      "host": "localhost",
+      "health_endpoint": "/health"
+    }
+  },
+  "models": {
+    "kat-dev-q4": {
+      "backend": "llamacpp",
+      "model_path": "/home/ivan/models/gguf/KAT-Dev-Q4_K_M.gguf"
+    },
+    "deepseek-r1-awq": {
+      "backend": "sglang",
+      "model_path": "/home/ivan/models/awq/DeepSeek-R1-Distill-Llama-70B-AWQ"
+    },
+    "llama3.1-70b-exl2": {
+      "backend": "tabbyapi",
+      "model_path": "exl2/Meta-Llama-3.1-70B-Instruct-exl2-4.25bpw"
+    }
+  }
+}

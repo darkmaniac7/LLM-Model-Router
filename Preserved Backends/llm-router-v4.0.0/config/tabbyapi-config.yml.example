@@ -1,0 +1,23 @@
+developer:
+  backend: exllamav2
+  unsafe_launch: false
+logging:
+  log_generation_params: false
+  log_prompt: false
+  log_requests: false
+model:
+  cache_mode: FP16
+  cache_size: 32768
+  chunk_size: 4096
+  gpu_split_auto: true
+  max_batch_size: 1
+  max_seq_len: 32768
+  model_dir: /home/ivan/models
+  model_name: exl2/Meta-Llama-3.1-70B-Instruct-exl2-4.25bpw
+  tensor_parallel: false
+network:
+  api_servers:
+  - OAI
+  disable_auth: true
+  host: 0.0.0.0
+  port: 5000

@@ -1,0 +1,17 @@
+[Unit]
+Description=Multi-Backend LLM Router v4.0.0
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/llm-router
+Environment="ROUTER_CONFIG=/opt/llm-router/config.json"
+ExecStart=/opt/llm-router/venv/bin/python /opt/llm-router/router.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

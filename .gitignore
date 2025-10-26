@@ -1,0 +1,33 @@
+# Ignore embedded git repositories in Preserved Backends
+Preserved Backends/llama.cpp/
+Preserved Backends/sglang-source/
+Preserved Backends/tabbyAPI/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

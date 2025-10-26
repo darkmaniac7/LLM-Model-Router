@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Multi-Backend LLM Router v3.3.0
-Simplified - No systemd required, just model paths
+Multi-Backend LLM Router v4.0.0
+Using systemd services for reliable backend management
 """
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
@@ -9,7 +9,7 @@ import httpx, subprocess, asyncio, logging, uvicorn, json, time, os
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-app = FastAPI(title="Multi-Backend LLM Router", version="3.3.0")
+app = FastAPI(title="Multi-Backend LLM Router", version="4.0.0")
 
 CONFIG_FILE = os.getenv("ROUTER_CONFIG", "/opt/llm-router/config.json")
 try:
@@ -27,16 +27,42 @@ except Exception as e:
     MODELS, ROUTER_PORT, MODEL_LOAD_TIMEOUT = {}, 8002, 300
     SGLANG_PORT, TABBY_PORT, LLAMACPP_PORT = 30000, 5000, 8085
 
-current_model, current_process, switching_lock = None, None, asyncio.Lock()
+# Global state
+state = {"current_model": None}
+switching_lock = asyncio.Lock()
 
 def create_sse(data): return f"data: {json.dumps(data)}\n\n"
 
 async def check_health(backend):
     try:
         port = {"sglang": SGLANG_PORT, "tabbyapi": TABBY_PORT, "llamacpp": LLAMACPP_PORT}[backend]
-        async with httpx.AsyncClient(timeout=2.0) as c:
-            return (await c.get(f"http://localhost:{port}/v1/models")).status_code == 200
+        
+        # Read TabbyAPI API key if available
+        headers = {}
+        if backend == "tabbyapi":
+            try:
+                import yaml
+                api_tokens_path = "/home/ivan/TabbyAPI/api_tokens.yml"
+                if os.path.exists(api_tokens_path):
+                    with open(api_tokens_path) as f:
+                        tokens = yaml.safe_load(f)
+                        if tokens and "admin_key" in tokens:
+                            headers["Authorization"] = f"Bearer {tokens['admin_key']}"
+            except Exception as e:
+                print(f"Warning: Could not load TabbyAPI auth token: {e}")
+        
+        async with httpx.AsyncClient(timeout=5.0) as c:
+            # Test actual inference capability, not just endpoint availability
+            test_body = {"model": "test", "prompt": "hi", "max_tokens": 1, "stream": False}
+            if backend == "llamacpp":
+                r = await c.post(f"http://localhost:{port}/v1/completions", json=test_body, headers=headers)
+            else:
+                r = await c.post(f"http://localhost:{port}/v1/chat/completions", 
+                    json={"model": "test", "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1, "stream": False},
+                    headers=headers)
+            return r.status_code in [200, 404]  # 404 means server up, just wrong model name
     except: return False
+
 
 async def wait_ready(backend):
     start = time.time()
@@ -50,25 +76,55 @@ async def wait_ready(backend):
     yield {"status": "timeout"}
 
 async def start_backend(model_info):
-    global current_process
+    backend = model_info["backend"]
+    
+    # Stop all backends
+    subprocess.run(["systemctl", "stop", "sglang.service"], capture_output=True)
+    subprocess.run(["systemctl", "stop", "tabbyapi.service"], capture_output=True)
+    subprocess.run(["systemctl", "stop", "llamacpp.service"], capture_output=True)
     subprocess.run(["pkill", "-9", "llama-server"], capture_output=True)
-    subprocess.run(["pkill", "-9", "-f", "sglang"], capture_output=True)
-    if current_process:
-        try: current_process.kill()
-        except: pass
     await asyncio.sleep(2)
     
-    backend, path = model_info["backend"], model_info["model_path"]
-    if backend == "sglang":
-        cmd = f"export PATH=/usr/local/cuda/bin:$PATH && cd $HOME/sglang && source sglang-env/bin/activate && python -m sglang.launch_server --model-path {path} --port {SGLANG_PORT} --host 0.0.0.0"
-        current_process = subprocess.Popen(cmd, shell=True, executable="/bin/bash")
-        async for s in wait_ready("sglang"): yield s
-    elif backend == "llamacpp":
-        cmd = f"$HOME/llama.cpp/build/bin/llama-server -m {path} -ngl 999 --port {LLAMACPP_PORT} --host 0.0.0.0 -c 4096"
-        current_process = subprocess.Popen(cmd, shell=True)
-        async for s in wait_ready("llamacpp"): yield s
+    # Update TabbyAPI config if needed
+    if backend == "tabbyapi":
+        # Extract model name from path (e.g., "exl2/Model-Name")
+        model_name = model_info["model_path"]
+        config_yml = f"""developer:
+  backend: exllamav2
+  unsafe_launch: false
+logging:
+  log_generation_params: false
+  log_prompt: false
+  log_requests: false
+model:
+  cache_mode: FP16
+  cache_size: 32768
+  chunk_size: 4096
+  gpu_split_auto: true
+  max_batch_size: 1
+  max_seq_len: 32768
+  model_dir: /home/ivan/models
+  model_name: {model_name}
+  tensor_parallel: false
+network:
+  api_servers:
+  - OAI
+  disable_auth: true
+  host: 0.0.0.0
+  port: {TABBY_PORT}
+"""
+        with open("/home/ivan/TabbyAPI/config.yml", "w") as f:
+            f.write(config_yml)
+    
+    # Start the appropriate service
+    service_map = {"sglang": "sglang.service", "tabbyapi": "tabbyapi.service", "llamacpp": "llamacpp.service"}
+    service = service_map.get(backend)
+    
+    if service:
+        subprocess.run(["systemctl", "start", service], capture_output=True)
+        async for s in wait_ready(backend): yield s
     else:
-        yield {"status": "error", "message": "TabbyAPI not yet supported"}
+        yield {"status": "error", "message": f"Unknown backend: {backend}"}
 
 @app.get("/v1/models")
 async def list_models():
@@ -76,19 +132,21 @@ async def list_models():
 
 @app.post("/v1/chat/completions")
 async def chat(request: Request):
-    global current_model
     body = await request.json()
     model = body.get("model")
     
+    if model not in MODELS:
+        return {"error": f"Model {model} not found"}
+    
     async def generate():
         async with switching_lock:
-            if current_model != model:
+            if state["current_model"] != model:
                 yield create_sse({"choices": [{"delta": {"content": f"🔄 Switching to {model}...\n"}}]})
                 async for s in start_backend(MODELS[model]):
                     if s["status"] == "loading":
                         yield create_sse({"choices": [{"delta": {"content": f"⏳ {s['elapsed']}s\n"}}]})
                     elif s["status"] == "ready":
-                        current_model = model
+                        state["current_model"] = model
                         yield create_sse({"choices": [{"delta": {"content": "✅ Ready!\n\n"}}]})
                         break
                     else:
@@ -105,11 +163,11 @@ async def chat(request: Request):
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "current_model": current_model, "models": list(MODELS.keys())}
+    return {"status": "healthy", "current_model": state["current_model"], "models": list(MODELS.keys())}
 
 if __name__ == "__main__":
     logger.info("="*60)
-    logger.info("Multi-Backend LLM Router v3.3.0")
+    logger.info("Multi-Backend LLM Router v4.0.0 - Systemd Edition")
     logger.info(f"Models: {list(MODELS.keys())}")
     logger.info("="*60)
     uvicorn.run(app, host="0.0.0.0", port=ROUTER_PORT)

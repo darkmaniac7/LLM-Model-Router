@@ -1,77 +1,89 @@
-# Multi-Backend LLM Router for NVIDIA Blackwell GPUs
+# Multi-Backend LLM Router v4.0.0 🚀
 
-**Version 4.0.0** - Production-ready with systemd service management
+Production-ready router supporting **SGLang (AWQ)**, **llama.cpp (GGUF)**, and **TabbyAPI (EXL2)** with automatic model switching through a unified OpenAI-compatible API.
 
-A robust FastAPI-based router supporting multiple LLM backends with automatic model switching:
-- **SGLang** (AWQ models) - ✅ Fully working with Blackwell fixes
-- **llama.cpp** (GGUF models) - ✅ Fully working via systemd services
-- **TabbyAPI** (EXL2 models) - 🚧 Functional, testing in progress
+## ✨ Features
 
-Optimized for NVIDIA Blackwell GPUs (RTX 6000 Pro) with Open-WebUI integration, real-time streaming status, and proper model load detection.
+- **3 Backend Support**: Seamlessly switch between GGUF, AWQ, and EXL2 models
+- **Automatic Model Switching**: Router handles backend lifecycle
+- **Systemd Management**: Reliable service control with proper monitoring
+- **Health Monitoring**: Intelligent checks with actual inference validation
+- **Streaming Support**: Full streaming for all backends
+- **OpenAI Compatible**: Drop-in replacement for OpenAI API
 
-## Features
+## 🎯 Quick Start
 
-✅ **Multi-Backend Support**: SGLang (AWQ), llama.cpp (GGUF), TabbyAPI (EXL2)  
-✅ **Systemd Service Management**: Reliable start/stop of backend services  
-✅ **Smart Health Checks**: Waits for models to fully load to GPU before proxying  
-✅ **Streaming Status Updates**: Real-time loading progress (⏳ 10s, ⏳ 20s, ✅ Ready!)  
-✅ **Blackwell GPU Fixes**: TORCH_CUDA_ARCH_LIST, Triton backend, CUDA arch 89/90  
-✅ **Open-WebUI Compatible**: Drop-in replacement for OpenAI API  
-✅ **Production Tested**: Ubuntu 24.04, CUDA 12.6, Driver 580.95.05
+```bash
+# 1. Install router
+sudo mkdir -p /opt/llm-router
+sudo cp router.py /opt/llm-router/
+sudo python3 -m venv /opt/llm-router/venv
+sudo /opt/llm-router/venv/bin/pip install fastapi uvicorn httpx pyyaml
 
-## Quick Start
+# 2. Configure
+sudo cp config/config.json.example /opt/llm-router/config.json
+# Edit config.json with your models
 
-### Prerequisites
+# 3. Install service
+sudo cp systemd/llm-router.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now llm-router.service
 
-- Ubuntu/Debian Linux
+# 4. Test
+curl http://localhost:8002/v1/models
+```
+
+## 📚 Documentation
+
+- **[Quick Start Guide](docs/QUICK_START.md)** - Get running in 10 minutes
+- **[TabbyAPI Installation](docs/TABBYAPI_INSTALL.md)** - Complete EXL2 backend setup
+- **[Configuration Examples](config/)** - Sample configs for all backends
+
+## 🔧 Backends
+
+| Backend | Format | Best For | Memory |
+|---------|--------|----------|--------|
+| **SGLang** | AWQ | Fast inference, high throughput | Medium-High |
+| **llama.cpp** | GGUF | CPU/GPU hybrid, flexibility | Low-Medium |
+| **TabbyAPI** | EXL2 | Maximum quality, NVIDIA only | High |
+
+## 📋 Requirements
+
+- Ubuntu 22.04+ or compatible Linux
+- NVIDIA GPU with CUDA 12.4+
 - Python 3.10+
-- One or more backends:
-  - SGLang (for AWQ models)
-  - TabbyAPI (for EXL2 models)
-  - llama.cpp (for GGUF models)
+- 64GB+ RAM (for 70B models)
+- Root access for systemd services
 
-### Installation
+## 🚀 Usage
 
-```bash
-# Download and extract
-tar -xzf multi-backend-llm-router.tar.gz
-cd multi-backend-llm-router
-
-# Run interactive installer
-sudo ./install.sh
-```
-
-The installer will:
-1. Check dependencies (Python, systemd)
-2. Create virtual environment and install packages
-3. Configure router with your backend settings
-4. Set up systemd services
-5. Start the router
-
-### Easy Model Management
-
-After installation, use the interactive script to add models:
+### List Models
 
 ```bash
-# Interactive menu
-/opt/llm-router/manage-models.sh
-
-# Or use directly
-/opt/llm-router/manage-models.sh add    # Add a new model
-/opt/llm-router/manage-models.sh list   # List current models
-/opt/llm-router/manage-models.sh remove # Remove a model
+curl http://localhost:8002/v1/models
 ```
 
-The script will:
-1. Ask for a model name (e.g., "my-llama-model")
-2. Let you choose the backend (llama.cpp, sglang, or tabbyapi)
-3. Ask for the full path to your model file or directory
-4. Automatically update the configuration
-5. Optionally restart the router
+### Chat Completion
 
-### Manual Configuration
+```bash
+curl -X POST http://localhost:8002/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "your-model-name",
+    "messages": [{"role": "user", "content": "Hello!"}],
+    "max_tokens": 100
+  }'
+```
 
-Or edit `/opt/llm-router/config.json` directly:
+### Health Check
+
+```bash
+curl http://localhost:8002/health
+```
+
+## ⚙️ Configuration
+
+### Router Config (`/opt/llm-router/config.json`)
 
 ```json
 {
@@ -79,233 +91,132 @@ Or edit `/opt/llm-router/config.json` directly:
   "model_load_timeout": 300,
   "backends": {
     "sglang": {"port": 30000, "host": "localhost"},
-    "tabbyapi": {"port": 5000, "host": "localhost"},
-    "llamacpp": {"port": 8085, "host": "localhost"}
+    "llamacpp": {"port": 8085, "host": "localhost"},
+    "tabbyapi": {"port": 5000, "host": "localhost"}
   },
   "models": {
-    "mistral-large-awq": {
-      "backend": "sglang",
-      "model_path": "/path/to/awq/model"
-    },
-    "behemoth-123b-gguf": {
+    "your-gguf-model": {
       "backend": "llamacpp",
       "model_path": "/path/to/model.gguf"
     },
-    "llama-70b-exl2": {
+    "your-awq-model": {
+      "backend": "sglang",
+      "model_path": "/path/to/awq-model"
+    },
+    "your-exl2-model": {
       "backend": "tabbyapi",
-      "model_path": "/path/to/exl2/model"
+      "model_path": "exl2/ModelName"
     }
   }
 }
 ```
 
-**No startup scripts needed!** Just point to your model files/directories.
+**Note**: TabbyAPI uses `model_dir` + `model_name` format. The router path should be the subdirectory only (e.g., `"exl2/ModelName"`).
 
-## Backend Setup
-
-### llama.cpp (GGUF Models)
-
-Build llama.cpp with CUDA support:
+## 🔍 Monitoring
 
 ```bash
-git clone https://github.com/ggerganov/llama.cpp
-cd llama.cpp
-mkdir build && cd build
+# Check router
+sudo systemctl status llm-router.service
 
-# For Blackwell GPUs (sm_90)
-cmake .. -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=90 \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
-         -DCMAKE_CUDA_FLAGS="-allow-unsupported-compiler"
+# Check backends
+sudo systemctl status sglang.service
+sudo systemctl status llamacpp.service
+sudo systemctl status tabbyapi.service
 
-cmake --build . --config Release -j $(nproc)
+# View logs
+sudo journalctl -u llm-router.service -f
+
+# GPU usage
+nvidia-smi
 ```
 
-Create startup script (example):
+## 🐛 Troubleshooting
 
+### Router not responding
 ```bash
-#!/bin/bash
-cd /path/to/llama.cpp/build
-exec ./bin/llama-server \
-    -m /path/to/model.gguf \
-    -ngl 999 \
-    --port 8085 \
-    --host 0.0.0.0 \
-    -c 4096
+# Check if running
+sudo systemctl status llm-router.service
+
+# View logs
+sudo journalctl -u llm-router.service -n 50
+
+# Restart
+sudo systemctl restart llm-router.service
 ```
 
-### SGLang (AWQ Models)
-
+### Backend not loading
 ```bash
-pip install "sglang[all]"
+# Check backend status
+sudo systemctl status tabbyapi.service
+
+# Test backend directly
+curl http://localhost:5000/health  # TabbyAPI
+curl http://localhost:30000/health # SGLang
+curl http://localhost:8085/health  # llama.cpp
 ```
 
-Create startup script:
+### Model switching fails
+- Check `MODEL_LOAD_TIMEOUT` in config (default: 300s)
+- Verify model paths are correct
+- Check GPU has sufficient memory (`nvidia-smi`)
+
+### TabbyAPI auth errors
+Router automatically reads `api_tokens.yml`. Ensure it exists:
 ```bash
-#!/bin/bash
-python -m sglang.launch_server \
-    --model-path /path/to/awq/model \
-    --port 30000 \
-    --host 0.0.0.0
+cat /home/ivan/TabbyAPI/api_tokens.yml
+# Should have both admin_key and api_key
 ```
 
-### TabbyAPI (EXL2 Models)
+## 🌟 Advanced
 
-```bash
-git clone https://github.com/theroyallab/tabbyAPI
-cd tabbyAPI
-pip install -r requirements.txt
-```
+### Multiple GPUs
 
-Configure in `config.yml` and create service.
+**TabbyAPI**: Set `gpu_split_auto: true` in config.yml  
+**SGLang**: Use `--tensor-parallel-size N`  
+**llama.cpp**: Use `-ngl 999` to offload all layers
 
-## Usage
+### Custom Parameters
 
-### With Open-WebUI
+Edit backend startup commands in systemd service files.
 
-1. Add the router as a connection:
-   ```
-   http://localhost:8002/v1
-   ```
+### Blackwell GPU Support
 
-2. Select any model from the dropdown - router handles backend switching automatically
+Tested on NVIDIA RTX PRO 6000 Blackwell. Use these build flags:
 
-### Direct API
+- **SGLang**: `TORCH_CUDA_ARCH_LIST="8.9;9.0"`
+- **llama.cpp**: `CMAKE_CUDA_ARCHITECTURES="89;90"`
+- **TabbyAPI**: Use pre-built venv with flash-attn (see docs)
 
-```bash
-# List models
-curl http://localhost:8002/v1/models
-
-# Chat completion
-curl http://localhost:8002/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "behemoth-123b-iq4nl",
-    "messages": [{"role": "user", "content": "Hello!"}],
-    "stream": true
-  }'
-```
-
-## Model Switching
-
-The router automatically:
-1. Detects when a different backend is needed
-2. Stops the current backend service
-3. Starts the new backend with the requested model
-4. Streams loading status to the client
-5. Forwards requests once ready
-
-Loading status example:
-```
-⏳ Loading model... 15s / 180s
-✓ Model ready! (23s)
-```
-
-## Performance Metrics
-
-Token/s stats are automatically appended to responses:
-```
-Your response text here.
-
-[Performance: 45.2 tok/s | 128 tokens in 2.83s]
-```
-
-## Troubleshooting
-
-### Check router status
-```bash
-sudo systemctl status llm-router
-sudo journalctl -u llm-router -f
-```
-
-### Check backend status
-```bash
-sudo systemctl status sglang
-sudo systemctl status tabbyapi
-sudo systemctl status llamacpp
-```
-
-### Test health endpoint
-```bash
-curl http://localhost:8002/health
-```
-
-## File Structure
+## 📊 Architecture
 
 ```
-multi-backend-llm-router/
-├── install.sh              # Interactive installer
-├── router.py               # Main router application
-├── README.md               # This file
-├── LICENSE                 # MIT License
-├── config/
-│   └── router_config.json.template
-├── systemd/
-│   ├── llm-router.service.template
-│   └── llamacpp.service.template
-└── scripts/
-    └── (model startup scripts go here)
+Client → Router (8002)
+           ↓
+    ┌──────┴──────┐
+    ↓      ↓      ↓
+ SGLang  llama  TabbyAPI
+ (30000) (8085) (5000)
+   AWQ    GGUF    EXL2
 ```
 
-## Configuration Reference
+## 🤝 Contributing
 
-### Router Configuration
+Contributions welcome! Please open an issue or PR on GitHub.
 
-`router_port`: Port for the router API (default: 8002)  
-`model_load_timeout`: Max seconds to wait for model load (default: 300)
+## 📄 License
 
-### Backend Configuration
+MIT License
 
-Each backend requires:
-- `port`: Port number the backend listens on
-- `host`: Hostname (usually "localhost")
-- `health_endpoint`: Health check path (usually "/health")
+## 🙏 Acknowledgments
 
-### Model Configuration
+- [SGLang](https://github.com/sgl-project/sglang) - Fast AWQ inference
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) - GGUF support
+- [TabbyAPI](https://github.com/theroyallab/tabbyAPI) - EXL2 backend
 
-Each model requires:
-- `backend`: "sglang", "tabbyapi", or "llamacpp"
-- `model_path`: Full path to model file (.gguf) or directory (AWQ/EXL2)
+---
 
-**That's it!** The router handles everything else automatically.
-
-## Requirements
-
-- Python 3.10+
-- FastAPI
-- httpx
-- uvicorn
-- pyyaml (for TabbyAPI support)
-
-Installed automatically by `install.sh`
-
-## Version History
-
-**3.3.0** (2025-10-26)
-- Simplified configuration - no startup scripts required
-- Added interactive model management script for non-technical users
-- Changed from YAML to JSON configuration
-- Router automatically reads model paths from config
-- Easy model adding/removing without manual config editing
-
-**3.2.0** (2025-10-25)
-- Added llama.cpp support for GGUF models
-- Improved Blackwell GPU compatibility
-
-**3.1.1** (2025-10-24)
-- Added tok/s performance metrics
-- Improved TabbyAPI model switching reliability
-- Better warmup handling
-
-**3.0.0** (2025-10-23)
-- Initial multi-backend support
-- SGLang and TabbyAPI integration
-- Streaming status updates
-
-## License
-
-MIT License - See LICENSE file
-
-## Support
-
-For issues and updates: https://github.com/darkmaniac7/multi-backend-llm-router
+**Version**: 4.0.0  
+**Status**: Production Ready ✅  
+**Tested**: NVIDIA Blackwell GPUs  
+**Last Updated**: January 26, 2025

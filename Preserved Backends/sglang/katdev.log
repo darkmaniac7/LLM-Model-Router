@@ -1,0 +1,29 @@
+/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+INFO 10-14 00:17:39 [__init__.py:216] Automatically detected platform cuda.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/tmp/sglang-git/python/sglang/launch_server.py", line 11, in <module>
+    server_args = prepare_server_args(sys.argv[1:])
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/sglang-git/python/sglang/srt/server_args.py", line 3428, in prepare_server_args
+    return ServerArgs.from_cli_args(raw_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/sglang-git/python/sglang/srt/server_args.py", line 3077, in from_cli_args
+    return cls(**{attr: getattr(args, attr) for attr in attrs})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 255, in __init__
+  File "/tmp/sglang-git/python/sglang/srt/server_args.py", line 525, in __post_init__
+    self._handle_model_specific_adjustments()
+  File "/tmp/sglang-git/python/sglang/srt/server_args.py", line 804, in _handle_model_specific_adjustments
+    from sglang.srt.configs.model_config import is_deepseek_nsa
+  File "/tmp/sglang-git/python/sglang/srt/configs/model_config.py", line 26, in <module>
+    from sglang.srt.layers.quantization import QUANTIZATION_METHODS
+  File "/tmp/sglang-git/python/sglang/srt/layers/quantization/__init__.py", line 47, in <module>
+    from sglang.srt.layers.quantization.compressed_tensors.compressed_tensors import (
+  File "/tmp/sglang-git/python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors.py", line 27, in <module>
+    from sglang.srt.layers.quantization.compressed_tensors.compressed_tensors_moe import (  # noqa: E501
+  File "/tmp/sglang-git/python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors_moe.py", line 34, in <module>
+    from sglang.srt.layers.quantization.compressed_tensors.compressed_tensors import (
+ImportError: cannot import name 'WNA16_SUPPORTED_BITS' from partially initialized module 'sglang.srt.layers.quantization.compressed_tensors.compressed_tensors' (most likely due to a circular import) (/tmp/sglang-git/python/sglang/srt/layers/quantization/compressed_tensors/compressed_tensors.py)

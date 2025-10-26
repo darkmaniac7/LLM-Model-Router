@@ -1,0 +1,16 @@
+[Unit]
+Description=SGLang Server - AWQ Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment="PATH=/usr/local/cuda/bin:$PATH"
+WorkingDirectory=/root/sglang
+ExecStart=/root/sglang/sglang-env/bin/python -m sglang.launch_server --model-path /path/to/model --port 30000 --host 0.0.0.0
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

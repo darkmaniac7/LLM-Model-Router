@@ -1,0 +1,87 @@
+nohup: ignoring input
+/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[2025-10-13 15:43:10] server_args=ServerArgs(model_path='/home/ivan/models/Evathene-v1.3-AWQ', tokenizer_path='/home/ivan/models/Evathene-v1.3-AWQ', tokenizer_mode='auto', tokenizer_worker_num=1, skip_tokenizer_init=False, load_format='auto', model_loader_extra_config='{}', trust_remote_code=False, modelopt_quant=None, context_length=16384, is_embedding=False, enable_multimodal=None, revision=None, model_impl='auto', host='0.0.0.0', port=8002, skip_server_warmup=False, warmups=None, nccl_port=None, dtype='auto', quantization='awq', quantization_param_path=None, kv_cache_dtype='auto', enable_fp32_lm_head=False, mem_fraction_static=0.92, max_running_requests=None, max_queued_requests=None, max_total_tokens=None, chunked_prefill_size=2048, max_prefill_tokens=16384, schedule_policy='fcfs', enable_priority_scheduling=False, schedule_low_priority_values_first=False, priority_scheduling_preemption_threshold=10, schedule_conservativeness=1.0, page_size=1, hybrid_kvcache_ratio=None, swa_full_tokens_ratio=0.8, disable_hybrid_swa_memory=False, radix_eviction_policy='lru', device='cuda', tp_size=1, pp_size=1, pp_max_micro_batch_size=None, stream_interval=1, stream_output=False, random_seed=690086512, constrained_json_whitespace_pattern=None, watchdog_timeout=300, dist_timeout=None, download_dir=None, base_gpu_id=0, gpu_id_step=1, sleep_on_idle=False, log_level='info', log_level_http=None, log_requests=True, log_requests_level=2, crash_dump_folder=None, show_time_cost=False, enable_metrics=False, enable_metrics_for_all_schedulers=False, tokenizer_metrics_custom_labels_header='x-custom-labels', tokenizer_metrics_allowed_custom_labels=None, bucket_time_to_first_token=None, bucket_inter_token_latency=None, bucket_e2e_request_latency=None, collect_tokens_histogram=False, prompt_tokens_buckets=None, generation_tokens_buckets=None, decode_log_interval=40, enable_request_time_stats_logging=False, kv_events_config=None, gc_warning_threshold_secs=0.0, enable_trace=False, oltp_traces_endpoint='localhost:4317', api_key=None, served_model_name='evathene-v1.3-awq', weight_version='default', chat_template=None, completion_template=None, file_storage_path='sglang_storage', enable_cache_report=False, reasoning_parser=None, tool_call_parser=None, tool_server=None, sampling_defaults='model', dp_size=1, load_balance_method='round_robin', load_watch_interval=0.1, prefill_round_robin_balance=False, dist_init_addr=None, nnodes=1, node_rank=0, json_model_override_args='{}', preferred_sampling_params=None, enable_lora=None, max_lora_rank=None, lora_target_modules=None, lora_paths=None, max_loaded_loras=None, max_loras_per_batch=8, lora_backend='triton', max_lora_chunk_size=16, attention_backend=None, decode_attention_backend=None, prefill_attention_backend=None, sampling_backend='flashinfer', grammar_backend='xgrammar', mm_attention_backend=None, nsa_prefill='flashmla_prefill', nsa_decode='fa3', speculative_algorithm=None, speculative_draft_model_path=None, speculative_draft_model_revision=None, speculative_num_steps=None, speculative_eagle_topk=None, speculative_num_draft_tokens=None, speculative_accept_threshold_single=1.0, speculative_accept_threshold_acc=1.0, speculative_token_map=None, speculative_attention_mode='prefill', speculative_ngram_min_match_window_size=1, speculative_ngram_max_match_window_size=12, speculative_ngram_min_bfs_breadth=1, speculative_ngram_max_bfs_breadth=10, speculative_ngram_match_type='BFS', speculative_ngram_branch_length=18, speculative_ngram_capacity=10000000, ep_size=1, moe_a2a_backend='none', moe_runner_backend='auto', flashinfer_mxfp4_moe_precision='default', enable_flashinfer_allreduce_fusion=False, deepep_mode='auto', ep_num_redundant_experts=0, ep_dispatch_algorithm='static', init_expert_location='trivial', enable_eplb=False, eplb_algorithm='auto', eplb_rebalance_num_iterations=1000, eplb_rebalance_layers_per_chunk=None, eplb_min_rebalancing_utilization_threshold=1.0, expert_distribution_recorder_mode=None, expert_distribution_recorder_buffer_size=1000, enable_expert_distribution_metrics=False, deepep_config=None, moe_dense_tp_size=None, max_mamba_cache_size=None, mamba_ssm_dtype='float32', enable_hierarchical_cache=False, hicache_ratio=2.0, hicache_size=0, hicache_write_policy='write_through', hicache_io_backend='kernel', hicache_mem_layout='layer_first', hicache_storage_backend=None, hicache_storage_prefetch_policy='best_effort', hicache_storage_backend_extra_config=None, enable_lmcache=False, enable_double_sparsity=False, ds_channel_config_path=None, ds_heavy_channel_num=32, ds_heavy_token_num=256, ds_heavy_channel_type='qk', ds_sparse_decode_threshold=4096, cpu_offload_gb=10, offload_group_size=-1, offload_num_in_group=1, offload_prefetch_step=1, offload_mode='cpu', multi_item_scoring_delimiter=None, disable_radix_cache=False, cuda_graph_max_bs=16, cuda_graph_bs=[1, 2, 4, 8, 12, 16], disable_cuda_graph=False, disable_cuda_graph_padding=False, enable_profile_cuda_graph=False, enable_cudagraph_gc=False, enable_nccl_nvls=False, enable_symm_mem=False, disable_flashinfer_cutlass_moe_fp4_allgather=False, enable_tokenizer_batch_encode=False, disable_outlines_disk_cache=False, disable_custom_all_reduce=False, enable_mscclpp=False, enable_torch_symm_mem=False, disable_overlap_schedule=False, enable_mixed_chunk=False, enable_dp_attention=False, enable_dp_lm_head=False, enable_two_batch_overlap=False, enable_single_batch_overlap=False, tbo_token_distribution_threshold=0.48, enable_torch_compile=False, torch_compile_max_bs=32, torchao_config='', enable_nan_detection=False, enable_p2p_check=False, triton_attention_reduce_in_fp32=False, triton_attention_num_kv_splits=8, triton_attention_split_tile_size=None, num_continuous_decode_steps=1, delete_ckpt_after_loading=False, enable_memory_saver=False, enable_weights_cpu_backup=False, allow_auto_truncate=False, enable_custom_logit_processor=False, flashinfer_mla_disable_ragged=False, disable_shared_experts_fusion=False, disable_chunked_prefix_cache=False, disable_fast_image_processor=False, keep_mm_feature_on_device=False, enable_return_hidden_states=False, scheduler_recv_interval=1, numa_node=None, enable_deterministic_inference=False, enable_dynamic_batch_tokenizer=False, dynamic_batch_tokenizer_batch_size=32, dynamic_batch_tokenizer_batch_timeout=0.002, debug_tensor_dump_output_folder=None, debug_tensor_dump_input_file=None, debug_tensor_dump_inject=False, debug_tensor_dump_prefill_only=False, disaggregation_mode='null', disaggregation_transfer_backend='mooncake', disaggregation_bootstrap_port=8998, disaggregation_decode_tp=None, disaggregation_decode_dp=None, disaggregation_prefill_pp=1, disaggregation_ib_device=None, disaggregation_decode_enable_offload_kvcache=False, num_reserved_decode_tokens=512, disaggregation_decode_polling_interval=1, custom_weight_loader=[], weight_loader_disable_mmap=False, remote_instance_weight_loader_seed_instance_ip=None, remote_instance_weight_loader_seed_instance_service_port=None, remote_instance_weight_loader_send_weights_group_ports=None, enable_pdmux=False, sm_group_num=3)
+`torch_dtype` is deprecated! Use `dtype` instead!
+[2025-10-13 15:43:10] Detected that the model can run with awq_marlin, however you specified quantization=awq explicitly, so forcing awq. Use quantization=awq_marlin for faster inference
+[2025-10-13 15:43:10] awq quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2025-10-13 15:43:10] Using default HuggingFace chat template with detected content format: string
+/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/torch/cuda/__init__.py:63: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+`torch_dtype` is deprecated! Use `dtype` instead!
+[2025-10-13 15:43:17] Detected that the model can run with awq_marlin, however you specified quantization=awq explicitly, so forcing awq. Use quantization=awq_marlin for faster inference
+[2025-10-13 15:43:17] awq quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2025-10-13 15:43:17] Detected that the model can run with awq_marlin, however you specified quantization=awq explicitly, so forcing awq. Use quantization=awq_marlin for faster inference
+[2025-10-13 15:43:17] awq quantization is not fully optimized yet. The speed can be slower than non-quantized models.
+[2025-10-13 15:43:17] Attention backend not explicitly specified. Use flashinfer backend by default.
+[2025-10-13 15:43:17] Init torch distributed begin.
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[2025-10-13 15:43:17] Init torch distributed ends. mem usage=0.00 GB
+[2025-10-13 15:43:17] MOE_RUNNER_BACKEND is not initialized, the backend will be automatically selected
+[2025-10-13 15:43:18] Load weight begin. avail mem=23.30 GB
+[2025-10-13 15:43:25] Scheduler hit an exception: Traceback (most recent call last):
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 2934, in run_scheduler_process
+    scheduler = Scheduler(
+                ^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/managers/scheduler.py", line 446, in __init__
+    self.tp_worker = TpModelWorker(
+                     ^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/managers/tp_worker.py", line 95, in __init__
+    self.model_runner = ModelRunner(
+                        ^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_executor/model_runner.py", line 299, in __init__
+    self.initialize(min_per_gpu_memory)
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_executor/model_runner.py", line 346, in initialize
+    self.load_model()
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_executor/model_runner.py", line 792, in load_model
+    self.model = get_model(
+                 ^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_loader/__init__.py", line 28, in get_model
+    return loader.load_model(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_loader/loader.py", line 576, in load_model
+    model = _initialize_model(
+            ^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/model_loader/loader.py", line 252, in _initialize_model
+    return model_class(
+           ^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/models/qwen2.py", line 419, in __init__
+    self.model = Qwen2Model(
+                 ^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/models/qwen2.py", line 284, in __init__
+    self.layers, self.start_layer, self.end_layer = make_layers(
+                                                    ^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/utils/common.py", line 504, in make_layers
+    + get_offloader().wrap_modules(
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/offloader.py", line 95, in wrap_modules
+    return [self.maybe_offload_to_cpu(module) for module in all_modules_generator]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/utils/common.py", line 506, in <genexpr>
+    layer_fn(idx=idx, prefix=add_prefix(idx, prefix))
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/models/qwen2.py", line 286, in <lambda>
+    lambda idx, prefix: decoder_layer_type(
+                        ^^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/models/qwen2.py", line 219, in __init__
+    self.mlp = Qwen2MLP(
+               ^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/models/qwen2.py", line 77, in __init__
+    self.down_proj = RowParallelLinear(
+                     ^^^^^^^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/layers/linear.py", line 1245, in __init__
+    self.quant_method.create_weights(
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/sglang/srt/layers/quantization/awq.py", line 359, in create_weights
+    data=torch.empty(
+         ^^^^^^^^^^^^
+  File "/home/ivan/sglang/sglang-env/lib/python3.12/site-packages/torch/utils/_device.py", line 103, in __torch_function__
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 116.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 31.19 MiB is free. Including non-PyTorch memory, this process has 23.50 GiB memory in use. Of the allocated memory 23.20 GiB is allocated by PyTorch, and 4.95 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+
+[2025-10-13 15:43:25] Received sigquit from a child process. It usually means the child failed.
+/home/ivan/sglang/start_sglang_evathene.sh: line 20: 683177 Killed                  python -m sglang.launch_server --model-path /home/ivan/models/Evathene-v1.3-AWQ --host 0.0.0.0 --port 8002 --tp-size 1 --context-length 16384 --quantization awq --served-model-name evathene-v1.3-awq --mem-fraction-static 0.92 --cpu-offload-gb 10 --log-level info --log-requests

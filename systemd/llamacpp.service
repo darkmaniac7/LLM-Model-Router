@@ -1,0 +1,15 @@
+[Unit]
+Description=llama.cpp Server - GGUF Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/llama.cpp
+ExecStart=/root/llama.cpp/build/bin/llama-server -m /path/to/model.gguf -ngl 999 --port 8085 --host 0.0.0.0 -c 4096
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
