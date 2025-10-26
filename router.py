@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Multi-Backend LLM Router", version="4.0.0")
 
 CONFIG_FILE = os.getenv("ROUTER_CONFIG", "/opt/llm-router/config.json")
+# TabbyAPI paths - configurable via environment or config
+TABBY_CONFIG_PATH = os.getenv("TABBY_CONFIG_PATH", "/opt/TabbyAPI/config.yml")
+TABBY_MODEL_DIR = os.getenv("TABBY_MODEL_DIR", "/opt/models")
+
 try:
     config = json.load(open(CONFIG_FILE))
     backends = config.get("backends", {})
@@ -21,6 +25,9 @@ try:
     MODELS = config.get("models", {})
     MODEL_LOAD_TIMEOUT = config.get("model_load_timeout", 300)
     ROUTER_PORT = config.get("router_port", 8002)
+    # Override from config if present
+    TABBY_CONFIG_PATH = config.get("tabby_config_path", TABBY_CONFIG_PATH)
+    TABBY_MODEL_DIR = config.get("tabby_model_dir", TABBY_MODEL_DIR)
     logger.info(f"Loaded {len(MODELS)} models: {list(MODELS.keys())}")
 except Exception as e:
     logger.error(f"Config error: {e}")
@@ -43,7 +50,7 @@ async def check_health(backend):
             try:
                 import yaml
                 # Get tokens path from environment or use default
-                api_tokens_path = os.getenv("TABBY_TOKENS_PATH", "/home/ivan/TabbyAPI/api_tokens.yml")
+                api_tokens_path = os.getenv("TABBY_TOKENS_PATH", "/opt/TabbyAPI/api_tokens.yml")
                 if os.path.exists(api_tokens_path):
                     with open(api_tokens_path) as f:
                         tokens = yaml.safe_load(f)
@@ -105,7 +112,7 @@ model:
   gpu_split_auto: true
   max_batch_size: 1
   max_seq_len: 32768
-  model_dir: /home/ivan/models
+  model_dir: {TABBY_MODEL_DIR}
   model_name: {model_name}
   tensor_parallel: false
 network:
@@ -115,7 +122,7 @@ network:
   host: 0.0.0.0
   port: {TABBY_PORT}
 """
-        with open("/home/ivan/TabbyAPI/config.yml", "w") as f:
+        with open(TABBY_CONFIG_PATH, "w") as f:
             f.write(config_yml)
     
     # Start the appropriate service

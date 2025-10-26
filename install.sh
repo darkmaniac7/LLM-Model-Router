@@ -70,8 +70,12 @@ TABBY_HOST=${TABBY_HOST:-localhost}
 read -p "TabbyAPI port [5000] (empty to disable): " TABBY_PORT
 TABBY_PORT=${TABBY_PORT:-5000}
 if [ ! -z "$TABBY_PORT" ]; then
-    read -p "TabbyAPI api_tokens.yml path [/home/\$USER/TabbyAPI/api_tokens.yml]: " TABBY_TOKENS_PATH
-    TABBY_TOKENS_PATH=${TABBY_TOKENS_PATH:-/home/$SUDO_USER/TabbyAPI/api_tokens.yml}
+    read -p "TabbyAPI install directory [/opt/TabbyAPI]: " TABBY_DIR
+    TABBY_DIR=${TABBY_DIR:-/opt/TabbyAPI}
+    read -p "Model directory [/opt/models]: " TABBY_MODEL_DIR
+    TABBY_MODEL_DIR=${TABBY_MODEL_DIR:-/opt/models}
+    TABBY_TOKENS_PATH="$TABBY_DIR/api_tokens.yml"
+    TABBY_CONFIG_PATH="$TABBY_DIR/config.yml"
 fi
 read -p "TabbyAPI service name [tabbyapi.service]: " TABBY_SERVICE
 TABBY_SERVICE=${TABBY_SERVICE:-tabbyapi.service}
@@ -88,7 +92,8 @@ echo "Backends:"
 [ ! -z "$LLAMACPP_PORT" ] && echo "  - llama.cpp (GGUF): $LLAMACPP_HOST:$LLAMACPP_PORT"
 if [ ! -z "$TABBY_PORT" ]; then
     echo "  - TabbyAPI (EXL2): $TABBY_HOST:$TABBY_PORT"
-    [ ! -z "$TABBY_TOKENS_PATH" ] && echo "    Auth tokens: $TABBY_TOKENS_PATH"
+    echo "    Directory: $TABBY_DIR"
+    echo "    Model dir: $TABBY_MODEL_DIR"
 fi
 echo ""
 
@@ -195,6 +200,8 @@ User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
 Environment="ROUTER_CONFIG=/opt/llm-router/config.json"
 Environment="TABBY_TOKENS_PATH=$TABBY_TOKENS_PATH"
+Environment="TABBY_CONFIG_PATH=$TABBY_CONFIG_PATH"
+Environment="TABBY_MODEL_DIR=$TABBY_MODEL_DIR"
 Environment="PATH=$PYTHON_ENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=$PYTHON_ENV/bin/python $INSTALL_DIR/router.py
 Restart=always

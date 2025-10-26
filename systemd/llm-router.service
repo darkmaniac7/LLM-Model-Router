@@ -7,7 +7,9 @@ Type=simple
 User=root
 WorkingDirectory=/opt/llm-router
 Environment="ROUTER_CONFIG=/opt/llm-router/config.json"
-Environment="TABBY_TOKENS_PATH=/home/$USER/TabbyAPI/api_tokens.yml"
+Environment="TABBY_TOKENS_PATH=/opt/TabbyAPI/api_tokens.yml"
+Environment="TABBY_CONFIG_PATH=/opt/TabbyAPI/config.yml"
+Environment="TABBY_MODEL_DIR=/opt/models"
 ExecStart=/opt/llm-router/venv/bin/python /opt/llm-router/router.py
 Restart=always
 RestartSec=10

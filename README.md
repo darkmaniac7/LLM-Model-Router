@@ -168,8 +168,9 @@ curl http://localhost:8085/health  # llama.cpp
 ### TabbyAPI auth errors
 Router automatically reads `api_tokens.yml`. Ensure it exists:
 ```bash
-cat /home/ivan/TabbyAPI/api_tokens.yml
+cat $TABBY_TOKENS_PATH
 # Should have both admin_key and api_key
+# Default path: /opt/TabbyAPI/api_tokens.yml
 ```
 
 ## 🌟 Advanced
