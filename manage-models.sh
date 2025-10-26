@@ -3,7 +3,7 @@
 # Easy Model Management Script for LLM Router
 # This script helps non-technical users add/update models
 
-CONFIG_FILE="/opt/llm-router/config.json"
+CONFIG_FILE="/etc/llm-router/config.json"
 
 show_header() {
     echo "=========================================="

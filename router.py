@@ -155,11 +155,41 @@ async def chat(request: Request):
                         yield create_sse({"choices": [{"delta": {"content": f"❌ {s.get('message','Timeout')}\n"}, "finish_reason": "error"}]})
                         return
         
+        # Track performance metrics
+        start_time = time.time()
+        token_count = 0
+        
         port = {"sglang": SGLANG_PORT, "tabbyapi": TABBY_PORT, "llamacpp": LLAMACPP_PORT}[MODELS[model]["backend"]]
         async with httpx.AsyncClient(timeout=300.0) as c:
             async with c.stream('POST', f"http://localhost:{port}/v1/chat/completions", json=body) as r:
                 async for chunk in r.aiter_bytes():
-                    yield chunk.decode() if isinstance(chunk, bytes) else chunk
+                    chunk_str = chunk.decode() if isinstance(chunk, bytes) else chunk
+                    
+                    # Count tokens from streamed content (rough estimate: ~4 chars per token)
+                    if chunk_str.startswith("data: "):
+                        try:
+                            data_str = chunk_str[6:].strip()
+                            if data_str and data_str != "[DONE]":
+                                chunk_data = json.loads(data_str)
+                                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                                    delta = chunk_data["choices"][0].get("delta", {})
+                                    content = delta.get("content", "")
+                                    if content:
+                                        token_count += max(1, len(content) // 4)
+                        except:
+                            pass
+                    
+                    yield chunk_str
+        
+        # Append performance metrics after completion
+        elapsed = time.time() - start_time
+        if elapsed > 0 and token_count > 0:
+            tok_per_sec = token_count / elapsed
+            perf_message = f"\n\n[Performance: {tok_per_sec:.1f} tok/s | {token_count} tokens in {elapsed:.2f}s]"
+            yield create_sse({"choices": [{"delta": {"content": perf_message}, "index": 0}]})
+            logger.info(f"Performance: {tok_per_sec:.1f} tok/s ({token_count} tokens in {elapsed:.2f}s)")
+        
+        yield "data: [DONE]\n\n"
     
     return StreamingResponse(generate(), media_type="text/event-stream")
 
