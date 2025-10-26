@@ -85,7 +85,86 @@ Health Check
 curl http://localhost:8002/health
 ```
 
-**Configuration**
+## 🛠️ Installation Scripts
+
+### Interactive Installer (`install.sh`)
+
+The included installer script automates the entire setup process:
+
+```bash
+sudo ./install.sh
+```
+
+**What it does:**
+
+1. **Detects Python** - Finds Python 3.10+ automatically
+2. **Prompts for Configuration**:
+   - Install directory (default: `/opt/llm-router`)
+   - Router port (default: `8002`)
+   - Backend hosts and ports (SGLang, llama.cpp, TabbyAPI)
+   - TabbyAPI paths (install dir, model directory)
+3. **Creates Virtual Environment** - Installs all Python dependencies
+4. **Generates Config** - Creates `/opt/llm-router/config.json` with your settings
+5. **Installs Systemd Service** - Sets up `llm-router.service` with proper environment variables
+6. **Copies Management Script** - Installs `manage-models.sh` for easy model management
+
+**Example Prompts:**
+```
+Install directory [/opt/llm-router]: 
+Router port [8002]: 
+SGLang port [30000] (empty to disable): 
+llama.cpp port [8085] (empty to disable): 
+TabbyAPI port [5000] (empty to disable): 
+TabbyAPI install directory [/opt/TabbyAPI]: 
+Model directory [/opt/models]: 
+```
+
+The installer creates a complete, ready-to-run setup with all paths configured correctly.
+
+### Model Management Script (`manage-models.sh`)
+
+Easy model management without manual JSON editing:
+
+```bash
+# Interactive menu
+/opt/llm-router/manage-models.sh
+
+# Or use directly
+/opt/llm-router/manage-models.sh list    # List all configured models
+/opt/llm-router/manage-models.sh add     # Add a new model
+/opt/llm-router/manage-models.sh remove  # Remove a model
+```
+
+**Add a Model (Interactive):**
+
+1. **Choose name**: `my-llama-70b`
+2. **Select backend**:
+   - `1) llama.cpp (for GGUF models)`
+   - `2) sglang (for AWQ models)`
+   - `3) tabbyapi (for EXL2 models)`
+3. **Enter path**: `/opt/models/gguf/llama-70b-q4.gguf`
+4. **Restart router**: `y/n`
+
+The script automatically:
+- Updates `/opt/llm-router/config.json`
+- Validates JSON format
+- Offers to restart the router service
+- Shows current models with `list` command
+
+**Example Output:**
+```
+Current Models:
+
+  • my-llama-70b
+    Backend: llamacpp
+    Path: /opt/models/gguf/llama-70b-q4.gguf
+
+  • deepseek-awq
+    Backend: sglang
+    Path: /opt/models/awq/DeepSeek-R1-70B
+```
+
+## ⚙️ Configuration
 
 Router Config (`/opt/llm-router/config.json`)
 
