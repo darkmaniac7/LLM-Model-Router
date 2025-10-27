@@ -45,56 +45,91 @@ RUN_USER=${RUN_USER:-root}
 
 echo ""
 echo "=== Backend Configuration ==="
-echo "Enter backend details (leave port empty to skip)"
+echo "For each backend, provide install location or leave empty to skip"
 echo ""
 
 # SGLang
-read -p "SGLang host [localhost]: " SGLANG_HOST
-SGLANG_HOST=${SGLANG_HOST:-localhost}
-read -p "SGLang port [30000] (empty to disable): " SGLANG_PORT
-SGLANG_PORT=${SGLANG_PORT:-30000}
-read -p "SGLang service name [sglang.service]: " SGLANG_SERVICE
-SGLANG_SERVICE=${SGLANG_SERVICE:-sglang.service}
+SGLANG_ENABLED=false
+read -p "SGLang directory (e.g., /home/user/sglang) [skip]: " SGLANG_DIR
+if [ ! -z "$SGLANG_DIR" ]; then
+    if [ ! -d "$SGLANG_DIR" ]; then
+        echo "⚠️  Directory not found: $SGLANG_DIR"
+        read -p "Continue anyway? (y/n): " CONT
+        [[ ! "$CONT" =~ ^[Yy]$ ]] && SGLANG_DIR=""
+    fi
+fi
+
+if [ ! -z "$SGLANG_DIR" ]; then
+    SGLANG_ENABLED=true
+    read -p "SGLang venv path [${SGLANG_DIR}/sglang-env]: " SGLANG_VENV
+    SGLANG_VENV=${SGLANG_VENV:-${SGLANG_DIR}/sglang-env}
+    read -p "SGLang port [30000]: " SGLANG_PORT
+    SGLANG_PORT=${SGLANG_PORT:-30000}
+    SGLANG_HOST="localhost"
+fi
 
 # llama.cpp
-read -p "llama.cpp host [localhost]: " LLAMACPP_HOST
-LLAMACPP_HOST=${LLAMACPP_HOST:-localhost}
-read -p "llama.cpp port [8085] (empty to disable): " LLAMACPP_PORT
-LLAMACPP_PORT=${LLAMACPP_PORT:-8085}
-read -p "llama.cpp service name [llamacpp.service]: " LLAMACPP_SERVICE
-LLAMACPP_SERVICE=${LLAMACPP_SERVICE:-llamacpp.service}
+LLAMACPP_ENABLED=false
+read -p "llama.cpp directory (e.g., /home/user/llama.cpp) [skip]: " LLAMACPP_DIR
+if [ ! -z "$LLAMACPP_DIR" ]; then
+    if [ ! -d "$LLAMACPP_DIR" ]; then
+        echo "⚠️  Directory not found: $LLAMACPP_DIR"
+        read -p "Continue anyway? (y/n): " CONT
+        [[ ! "$CONT" =~ ^[Yy]$ ]] && LLAMACPP_DIR=""
+    fi
+fi
+
+if [ ! -z "$LLAMACPP_DIR" ]; then
+    LLAMACPP_ENABLED=true
+    read -p "llama.cpp binary [${LLAMACPP_DIR}/build/bin/llama-server]: " LLAMACPP_BIN
+    LLAMACPP_BIN=${LLAMACPP_BIN:-${LLAMACPP_DIR}/build/bin/llama-server}
+    read -p "llama.cpp port [8085]: " LLAMACPP_PORT
+    LLAMACPP_PORT=${LLAMACPP_PORT:-8085}
+    LLAMACPP_HOST="localhost"
+fi
 
 # TabbyAPI
-read -p "TabbyAPI host [localhost]: " TABBY_HOST
-TABBY_HOST=${TABBY_HOST:-localhost}
-read -p "TabbyAPI port [5000] (empty to disable): " TABBY_PORT
-TABBY_PORT=${TABBY_PORT:-5000}
-if [ ! -z "$TABBY_PORT" ]; then
-    read -p "TabbyAPI install directory [/opt/TabbyAPI]: " TABBY_DIR
-    TABBY_DIR=${TABBY_DIR:-/opt/TabbyAPI}
-    read -p "Model directory [/opt/models]: " TABBY_MODEL_DIR
+TABBY_ENABLED=false
+read -p "TabbyAPI directory (e.g., /home/user/TabbyAPI) [skip]: " TABBY_DIR
+if [ ! -z "$TABBY_DIR" ]; then
+    if [ ! -d "$TABBY_DIR" ]; then
+        echo "⚠️  Directory not found: $TABBY_DIR"
+        read -p "Continue anyway? (y/n): " CONT
+        [[ ! "$CONT" =~ ^[Yy]$ ]] && TABBY_DIR=""
+    fi
+fi
+
+if [ ! -z "$TABBY_DIR" ]; then
+    TABBY_ENABLED=true
+    read -p "TabbyAPI venv path [${TABBY_DIR}/venv]: " TABBY_VENV
+    TABBY_VENV=${TABBY_VENV:-${TABBY_DIR}/venv}
+    read -p "TabbyAPI model directory [/opt/models]: " TABBY_MODEL_DIR
     TABBY_MODEL_DIR=${TABBY_MODEL_DIR:-/opt/models}
+    read -p "TabbyAPI port [5000]: " TABBY_PORT
+    TABBY_PORT=${TABBY_PORT:-5000}
+    TABBY_HOST="localhost"
     TABBY_TOKENS_PATH="$TABBY_DIR/api_tokens.yml"
     TABBY_CONFIG_PATH="$TABBY_DIR/config.yml"
+    
+    # Check if Blackwell GPU
+    if nvidia-smi --query-gpu=compute_cap --format=csv,noheader | grep -q "12.0"; then
+        echo "✓ Detected Blackwell GPU - will set TORCH_CUDA_ARCH_LIST workaround"
+        TABBY_NEEDS_WORKAROUND=true
+    else
+        TABBY_NEEDS_WORKAROUND=false
+    fi
 fi
-read -p "TabbyAPI service name [tabbyapi.service]: " TABBY_SERVICE
-TABBY_SERVICE=${TABBY_SERVICE:-tabbyapi.service}
 
 echo ""
 echo "=== Summary ===" 
 echo "Install directory: $INSTALL_DIR"
-echo "Python environment: $PYTHON_ENV"
 echo "Router port: $ROUTER_PORT"
 echo "Run as user: $RUN_USER"
 echo ""
 echo "Backends:"
-[ ! -z "$SGLANG_PORT" ] && echo "  - SGLang (AWQ): $SGLANG_HOST:$SGLANG_PORT"
-[ ! -z "$LLAMACPP_PORT" ] && echo "  - llama.cpp (GGUF): $LLAMACPP_HOST:$LLAMACPP_PORT"
-if [ ! -z "$TABBY_PORT" ]; then
-    echo "  - TabbyAPI (EXL2): $TABBY_HOST:$TABBY_PORT"
-    echo "    Directory: $TABBY_DIR"
-    echo "    Model dir: $TABBY_MODEL_DIR"
-fi
+[ "$SGLANG_ENABLED" = true ] && echo "  ✓ SGLang: $SGLANG_DIR (port $SGLANG_PORT)"
+[ "$LLAMACPP_ENABLED" = true ] && echo "  ✓ llama.cpp: $LLAMACPP_DIR (port $LLAMACPP_PORT)"
+[ "$TABBY_ENABLED" = true ] && echo "  ✓ TabbyAPI: $TABBY_DIR (port $TABBY_PORT)"
 echo ""
 
 read -p "Proceed with installation? (y/n): " CONFIRM
@@ -123,21 +158,11 @@ $PYTHON_ENV/bin/pip install fastapi uvicorn httpx pyyaml > /dev/null
 echo "✓ Python dependencies installed"
 
 # Generate config.json
-cat > /opt/llm-router/config.json << 'EOFCONFIG'
-{
-  "router_port": ROUTER_PORT_PLACEHOLDER,
-  "model_load_timeout": 300,
-  "backends": {
-EOFCONFIG
-
-# Add backends to JSON
 BACKENDS_JSON=""
 BACKEND_COUNT=0
 
-if [ ! -z "$SGLANG_PORT" ]; then
-    if [ $BACKEND_COUNT -gt 0 ]; then
-        BACKENDS_JSON="$BACKENDS_JSON,"
-    fi
+if [ "$SGLANG_ENABLED" = true ]; then
+    if [ $BACKEND_COUNT -gt 0 ]; then BACKENDS_JSON="$BACKENDS_JSON,"; fi
     BACKENDS_JSON="$BACKENDS_JSON
     \"sglang\": {
       \"port\": $SGLANG_PORT,
@@ -147,10 +172,8 @@ if [ ! -z "$SGLANG_PORT" ]; then
     BACKEND_COUNT=$((BACKEND_COUNT + 1))
 fi
 
-if [ ! -z "$TABBY_PORT" ]; then
-    if [ $BACKEND_COUNT -gt 0 ]; then
-        BACKENDS_JSON="$BACKENDS_JSON,"
-    fi
+if [ "$TABBY_ENABLED" = true ]; then
+    if [ $BACKEND_COUNT -gt 0 ]; then BACKENDS_JSON="$BACKENDS_JSON,"; fi
     BACKENDS_JSON="$BACKENDS_JSON
     \"tabbyapi\": {
       \"port\": $TABBY_PORT,
@@ -160,10 +183,8 @@ if [ ! -z "$TABBY_PORT" ]; then
     BACKEND_COUNT=$((BACKEND_COUNT + 1))
 fi
 
-if [ ! -z "$LLAMACPP_PORT" ]; then
-    if [ $BACKEND_COUNT -gt 0 ]; then
-        BACKENDS_JSON="$BACKENDS_JSON,"
-    fi
+if [ "$LLAMACPP_ENABLED" = true ]; then
+    if [ $BACKEND_COUNT -gt 0 ]; then BACKENDS_JSON="$BACKENDS_JSON,"; fi
     BACKENDS_JSON="$BACKENDS_JSON
     \"llamacpp\": {
       \"port\": $LLAMACPP_PORT,
@@ -172,24 +193,149 @@ if [ ! -z "$LLAMACPP_PORT" ]; then
     }"
 fi
 
-cat >> /opt/llm-router/config.json << EOFCONFIG
-$BACKENDS_JSON
+cat > $INSTALL_DIR/config.json << EOFCONFIG
+{
+  "router_port": $ROUTER_PORT,
+  "model_load_timeout": 300,
+  "backends": {$BACKENDS_JSON
   },
   "models": {}
 }
 EOFCONFIG
 
-# Replace router port placeholder
-sed -i "s/ROUTER_PORT_PLACEHOLDER/$ROUTER_PORT/" /opt/llm-router/config.json
+echo "✓ Configuration created at $INSTALL_DIR/config.json"
 
-echo "✓ Configuration created at /opt/llm-router/config.json"
-echo ""
-echo "To add models, use the management script:"
-echo "  $INSTALL_DIR/manage-models.sh"
-echo "Or manually edit: /opt/llm-router/config.json"
+# Create backend wrapper scripts
+if [ "$SGLANG_ENABLED" = true ]; then
+    cat > $INSTALL_DIR/start-sglang.sh << 'EOFSGLANG'
+#!/bin/bash
+MODEL_PATH=$(python3 -c "
+import json, sys
+with open('/opt/llm-router/config.json') as f:
+    config = json.load(f)
+for name, info in config['models'].items():
+    if info['backend'] == 'sglang':
+        print(info['model_path'])
+        sys.exit(0)
+print('ERROR: No SGLang model configured', file=sys.stderr)
+sys.exit(1)
+")
+if [ $? -ne 0 ]; then exit 1; fi
+cd SGLANG_DIR_PLACEHOLDER
+exec SGLANG_VENV_PLACEHOLDER/bin/python -m sglang.launch_server \
+    --model-path "$MODEL_PATH" \
+    --host 0.0.0.0 \
+    --port SGLANG_PORT_PLACEHOLDER \
+    --quantization awq
+EOFSGLANG
+    sed -i "s|SGLANG_DIR_PLACEHOLDER|$SGLANG_DIR|g" $INSTALL_DIR/start-sglang.sh
+    sed -i "s|SGLANG_VENV_PLACEHOLDER|$SGLANG_VENV|g" $INSTALL_DIR/start-sglang.sh
+    sed -i "s|SGLANG_PORT_PLACEHOLDER|$SGLANG_PORT|g" $INSTALL_DIR/start-sglang.sh
+    chmod +x $INSTALL_DIR/start-sglang.sh
+    echo "✓ Created SGLang wrapper script"
+fi
 
-# Create systemd service
-cat > /etc/systemd/system/llm-router.service << EOFSERVICE
+if [ "$LLAMACPP_ENABLED" = true ]; then
+    cat > $INSTALL_DIR/start-llamacpp.sh << 'EOFLLAMACPP'
+#!/bin/bash
+MODEL_PATH=$(python3 -c "
+import json, sys
+with open('/opt/llm-router/config.json') as f:
+    config = json.load(f)
+for name, info in config['models'].items():
+    if info['backend'] == 'llamacpp':
+        print(info['model_path'])
+        sys.exit(0)
+print('ERROR: No llama.cpp model configured', file=sys.stderr)
+sys.exit(1)
+")
+if [ $? -ne 0 ]; then exit 1; fi
+cd LLAMACPP_DIR_PLACEHOLDER
+export LD_LIBRARY_PATH=LLAMACPP_DIR_PLACEHOLDER/build/bin
+exec LLAMACPP_BIN_PLACEHOLDER \
+    -m "$MODEL_PATH" \
+    --host 0.0.0.0 \
+    --port LLAMACPP_PORT_PLACEHOLDER
+EOFLLAMACPP
+    sed -i "s|LLAMACPP_DIR_PLACEHOLDER|$LLAMACPP_DIR|g" $INSTALL_DIR/start-llamacpp.sh
+    sed -i "s|LLAMACPP_BIN_PLACEHOLDER|$LLAMACPP_BIN|g" $INSTALL_DIR/start-llamacpp.sh
+    sed -i "s|LLAMACPP_PORT_PLACEHOLDER|$LLAMACPP_PORT|g" $INSTALL_DIR/start-llamacpp.sh
+    chmod +x $INSTALL_DIR/start-llamacpp.sh
+    echo "✓ Created llama.cpp wrapper script"
+fi
+
+# Create systemd services
+if [ "$SGLANG_ENABLED" = true ]; then
+    cat > /etc/systemd/system/sglang.service << EOFSVC
+[Unit]
+Description=SGLang Server - AWQ Backend
+After=network.target
+
+[Service]
+Type=simple
+User=$RUN_USER
+WorkingDirectory=$SGLANG_DIR
+ExecStart=$INSTALL_DIR/start-sglang.sh
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+    echo "✓ Created sglang.service"
+fi
+
+if [ "$LLAMACPP_ENABLED" = true ]; then
+    cat > /etc/systemd/system/llamacpp.service << EOFSVC
+[Unit]
+Description=llama.cpp Server - GGUF Backend
+After=network.target
+
+[Service]
+Type=simple
+User=$RUN_USER
+WorkingDirectory=$LLAMACPP_DIR
+ExecStart=$INSTALL_DIR/start-llamacpp.sh
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+    echo "✓ Created llamacpp.service"
+fi
+
+if [ "$TABBY_ENABLED" = true ]; then
+    TABBY_ENV=""
+    if [ "$TABBY_NEEDS_WORKAROUND" = true ]; then
+        TABBY_ENV="Environment=\"TORCH_CUDA_ARCH_LIST=8.9;9.0\""
+    fi
+    cat > /etc/systemd/system/tabbyapi.service << EOFSVC
+[Unit]
+Description=TabbyAPI Server - EXL2 Backend
+After=network.target
+
+[Service]
+Type=simple
+User=$RUN_USER
+WorkingDirectory=$TABBY_DIR
+$TABBY_ENV
+Environment="PATH=$TABBY_VENV/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=$TABBY_VENV/bin/python main.py --model-dir $TABBY_MODEL_DIR
+Restart=no
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOFSVC
+    echo "✓ Created tabbyapi.service"
+fi
+
+# Create router systemd service
+cat > /etc/systemd/system/llm-router.service << EOFSVC
 [Unit]
 Description=Multi-Backend LLM Router v4.0.0
 After=network.target
@@ -198,7 +344,7 @@ After=network.target
 Type=simple
 User=$RUN_USER
 WorkingDirectory=$INSTALL_DIR
-Environment="ROUTER_CONFIG=/opt/llm-router/config.json"
+Environment="ROUTER_CONFIG=$INSTALL_DIR/config.json"
 Environment="TABBY_TOKENS_PATH=$TABBY_TOKENS_PATH"
 Environment="TABBY_CONFIG_PATH=$TABBY_CONFIG_PATH"
 Environment="TABBY_MODEL_DIR=$TABBY_MODEL_DIR"
@@ -211,53 +357,33 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-EOFSERVICE
+EOFSVC
 
 systemctl daemon-reload
-echo "✓ Systemd service created"
+echo "✓ Systemd services created and loaded"
 
 echo ""
 echo "=========================================="
 echo "✅ Installation Complete!"
 echo "=========================================="
 echo ""
-echo "📚 Documentation:"
-echo "  - Quick Start: docs/QUICK_START.md"
-echo "  - TabbyAPI Setup: docs/TABBYAPI_INSTALL.md"
-echo "  - Systemd Services: systemd/*.service"
-echo ""
 echo "Next steps:"
-echo "1. Configure backend services (see systemd/ directory for templates)"
 echo ""
-echo "2. Add your models using the management script:"
+echo "1. Add your models:"
 echo "   $INSTALL_DIR/manage-models.sh"
 echo ""
-echo "3. Start the router:"
+echo "2. Start the router:"
 echo "   sudo systemctl start llm-router"
 echo ""
-echo "4. Enable auto-start on boot:"
-echo "   sudo systemctl enable llm-router"
-echo ""
-echo "5. Check status:"
+echo "3. Check status:"
 echo "   sudo systemctl status llm-router"
 echo ""
-echo "6. View logs:"
-echo "   journalctl -u llm-router -f"
+echo "4. Configure Open-WebUI to use:"
+echo "   http://localhost:$ROUTER_PORT"
 echo ""
-echo "🚀 Router API:"
-echo "  Base URL: http://localhost:$ROUTER_PORT"
-echo "  Chat: http://localhost:$ROUTER_PORT/v1/chat/completions"
-echo "  Models: http://localhost:$ROUTER_PORT/v1/models"
-echo "  Health: http://localhost:$ROUTER_PORT/health"
+echo "Backend services created:"
+[ "$SGLANG_ENABLED" = true ] && echo "  - sglang.service"
+[ "$LLAMACPP_ENABLED" = true ] && echo "  - llamacpp.service"
+[ "$TABBY_ENABLED" = true ] && echo "  - tabbyapi.service"
 echo ""
-echo "🔧 Model management:"
-echo "  Add model:    $INSTALL_DIR/manage-models.sh add"
-echo "  List models:  $INSTALL_DIR/manage-models.sh list"
-echo "  Remove model: $INSTALL_DIR/manage-models.sh remove"
-echo ""
-if [ ! -z "$TABBY_PORT" ] && [ ! -z "$TABBY_TOKENS_PATH" ]; then
-    echo "⚠️  TabbyAPI Note:"
-    echo "  Router will read auth tokens from: $TABBY_TOKENS_PATH"
-    echo "  Ensure this file exists with both 'admin_key' and 'api_key'"
-    echo ""
-fi
+echo "These will auto-start when you select a model in Open-WebUI!"

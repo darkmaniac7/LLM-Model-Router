@@ -16,10 +16,11 @@ list_models() {
     echo "Current Models:"
     echo ""
     if [ -f "$CONFIG_FILE" ]; then
-        python3 - <<PYEOF
+        python3 - <<'PYEOF'
 import json
+import sys
 try:
-    with open("$CONFIG_FILE") as f:
+    with open("/opt/llm-router/config.json") as f:
         config = json.load(f)
     if "models" in config and config["models"]:
         for name, settings in config["models"].items():
@@ -74,11 +75,16 @@ add_model() {
     fi
     
     # Add model to config
-    python3 - <<PYEOF
+    python3 - "$MODEL_NAME" "$BACKEND" "$MODEL_PATH" <<'PYEOF'
 import json
+import sys
+
+model_name = sys.argv[1]
+backend = sys.argv[2]
+model_path = sys.argv[3]
 
 try:
-    with open("$CONFIG_FILE", "r") as f:
+    with open("/opt/llm-router/config.json", "r") as f:
         config = json.load(f)
 except FileNotFoundError:
     config = {"models": {}, "backends": {}}
@@ -86,22 +92,23 @@ except FileNotFoundError:
 if "models" not in config:
     config["models"] = {}
 
-config["models"]["$MODEL_NAME"] = {
-    "backend": "$BACKEND",
-    "model_path": "$MODEL_PATH"
+config["models"][model_name] = {
+    "backend": backend,
+    "model_path": model_path
 }
 
-with open("$CONFIG_FILE", "w") as f:
+with open("/opt/llm-router/config.json", "w") as f:
     json.dump(config, f, indent=2)
 
-print(f"\n✓ Model '{$MODEL_NAME}' added successfully!")
+print(f"\n✓ Model '{model_name}' added successfully!")
 PYEOF
     
     echo ""
     read -p "Restart router service now? (y/n): " RESTART
     if [[ "$RESTART" =~ ^[Yy]$ ]]; then
-        sudo systemctl restart llm-router
-        echo "✓ Router restarted"
+        echo "Restarting router..."
+        systemctl restart llm-router.service
+        echo "Done!"
     fi
 }
 
@@ -109,25 +116,34 @@ remove_model() {
     echo "Remove Model"
     echo "------------"
     echo ""
-    list_models
-    read -p "Enter model name to remove: " MODEL_NAME
     
-    python3 - <<PYEOF
+    list_models
+    
+    read -p "Model name to remove: " MODEL_NAME
+    if [ -z "$MODEL_NAME" ]; then
+        echo "Error: Model name cannot be empty"
+        return 1
+    fi
+    
+    python3 - "$MODEL_NAME" <<'PYEOF'
 import json
+import sys
+
+model_name = sys.argv[1]
 
 try:
-    with open("$CONFIG_FILE", "r") as f:
+    with open("/opt/llm-router/config.json", "r") as f:
         config = json.load(f)
     
-    if "models" in config and "$MODEL_NAME" in config["models"]:
-        del config["models"]["$MODEL_NAME"]
+    if "models" in config and model_name in config["models"]:
+        del config["models"][model_name]
         
-        with open("$CONFIG_FILE", "w") as f:
+        with open("/opt/llm-router/config.json", "w") as f:
             json.dump(config, f, indent=2)
         
-        print(f"\n✓ Model '{$MODEL_NAME}' removed successfully!")
+        print(f"\n✓ Model '{model_name}' removed successfully!")
     else:
-        print(f"\nError: Model '{$MODEL_NAME}' not found")
+        print(f"\nError: Model '{model_name}' not found")
 except Exception as e:
     print(f"\nError: {e}")
 PYEOF
