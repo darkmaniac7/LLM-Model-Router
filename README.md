@@ -9,6 +9,7 @@ Production-ready router supporting **SGLang (AWQ)**, **llama.cpp (GGUF)**, and *
 - **Systemd Management**: Reliable service control with proper monitoring
 - **Health Monitoring**: Intelligent checks with actual inference validation
 - **Streaming Support**: Full streaming for all backends
+- **Performance Metrics**: Real-time tokens/sec display after each response
 - **OpenAI Compatible**: Drop-in replacement for OpenAI API
 
 **Quick Start**
@@ -83,6 +84,16 @@ Health Check
 
 ```bash
 curl http://localhost:8002/health
+```
+
+**Performance Metrics**
+
+The router automatically displays performance stats after each response:
+
+```
+Your response text here...
+
+⚡ 45.2 tok/s (180 tokens in 4.0s)
 ```
 
 ## 🛠️ Installation Scripts
