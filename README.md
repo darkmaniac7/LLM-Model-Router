@@ -175,7 +175,7 @@ Current Models:
     Path: /opt/models/awq/DeepSeek-R1-70B
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Router Config (`/opt/llm-router/config.json`)
 
